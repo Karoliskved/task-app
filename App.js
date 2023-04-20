@@ -6,8 +6,11 @@ import {
   Text,
   ScrollView,
   TextInput,
-  text,
+  TouchableOpacity,
+  Animated,
+  Dimensions,
 } from "react-native";
+
 import {
   Button,
   Card,
@@ -18,6 +21,9 @@ import {
   darkColors,
   Icon,
   FAB,
+  Overlay,
+  ListItem,
+  Input,
 } from "@rneui/themed";
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 const theme = createTheme({
@@ -82,9 +88,19 @@ const App = () => {
   //   setNotes(notes)
   //   setFilteredNotes(notes)
   // }, [])
-
   const [searchValue, setSearchValue] = useState("");
   const [isHidden, setIsHidden] = useState(true);
+  const [showMenu, setShowMenu] = useState(false);
+  const [slideAnim] = useState(new Animated.Value(400));
+  const { width } = Dimensions.get("window");
+  const toggleMenu = () => {
+    setShowMenu(!showMenu);
+    Animated.timing(slideAnim, {
+      toValue: showMenu ? width : 250,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
   const [newTitle, setnewTitle] = useState("");
   const [newDescription, setnewDescription] = useState("");
   const [newDate, setnewDate] = useState("");
@@ -121,6 +137,36 @@ const App = () => {
     // console.log(newDate);
     addNotes(newTitle, newDescription, newDate);
   };
+  const deleteNote = (id) => {
+    const updatedNotes = notes.filter((note) => note.id !== id);
+    setFilteredNotes(updatedNotes);
+    setNotes(updatedNotes)
+  };
+  const [noteToEdit, setNoteToEdit] = useState({});
+  const handleInputChange = (name, value) => {
+    setNoteToEdit({...noteToEdit,[name]: value});
+  };
+
+  const editNote = () => {
+    const updatedNotes = notes.map((note) =>
+      note.id === noteToEdit.id ? noteToEdit : note
+    );
+    setFilteredNotes([...updatedNotes]);
+    setNotes([...updatedNotes])
+    toggleEditOverlay()
+  };
+  
+  const [visibleEdit, setVisibleEdit] = useState(false);
+
+  const toggleEditOverlay = (note) => {
+    if (visibleEdit) {
+      setNoteToEdit({})
+    } else {
+      setNoteToEdit({...note})
+    }
+    setVisibleEdit(!visibleEdit);
+
+  };
   return (
     <ThemeProvider theme={theme}>
       <View
@@ -140,29 +186,48 @@ const App = () => {
             justifyContent: "center",
           }}
         >
-          <SearchBar
-            platform="android"
-            containerStyle={{ flex: 1 }}
-            inputContainerStyle={{}}
-            inputStyle={{}}
-            leftIconContainerStyle={{}}
-            rightIconContainerStyle={{}}
-            loadingProps={{}}
-            onChangeText={(newVal) => setSearchValue(newVal)}
-            onClear={() => {
-              setSearchValue("");
-            }}
-            placeholder="Search..."
-            placeholderTextColor="#888"
-            round
-            onCancel={() => setSearchValue("")}
-            cancelButtonTitle="Cancel"
-            cancelButtonProps={{}}
-            value={searchValue}
-            onSubmitEditing={filterNotes}
-            clearIcon={searchValue ? { color: "#888" } : null}
-          />
-          <Icon name="menu" size={30} style={{ padding: 20 }} />
+          <View style={{ width: "80%", padding: 10 }}>
+            <SearchBar
+              platform="android"
+              containerStyle={{ flex: 1 }}
+              inputContainerStyle={{}}
+              inputStyle={{}}
+              leftIconContainerStyle={{}}
+              rightIconContainerStyle={{}}
+              loadingProps={{}}
+              onChangeText={(newVal) => setSearchValue(newVal)}
+              onClear={() => {
+                setSearchValue("");
+              }}
+              placeholder="Search..."
+              placeholderTextColor="#888"
+              round
+              onCancel={() => setSearchValue("")}
+              cancelButtonTitle="Cancel"
+              cancelButtonProps={{}}
+              value={searchValue}
+              onSubmitEditing={filterNotes}
+              clearIcon={searchValue ? { color: "#888" } : null}
+            />
+          </View>
+          <View style={styles.container}>
+            <TouchableOpacity onPress={toggleMenu}>
+              <Icon name="menu" raised size={25} color="black" />
+            </TouchableOpacity>
+            <Animated.View
+              style={[
+                styles.menuContainer,
+                { transform: [{ translateX: slideAnim }] },
+              ]}
+            >
+              <TouchableOpacity onPress={toggleMenu}>
+                <Text style={styles.closeButton}>X</Text>
+              </TouchableOpacity>
+              <Text style={styles.menuItem}>Category 1</Text>
+              <Text style={styles.menuItem}>Category 2</Text>
+              <Text style={styles.menuItem}>Category 3</Text>
+            </Animated.View>
+          </View>
         </View>
         <ScrollView
           style={{
@@ -175,54 +240,88 @@ const App = () => {
           }}
         >
           {filteredNotes.map((note) => (
-            <Card key={note.id} containerStyle={{ width: "90%", margin: 10 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                }}
+            <React.Fragment key={note.id}>
+              <Overlay
+                isVisible={visibleEdit}
+                onBackdropPress={()=>toggleEditOverlay(note)}
+                fullScreen
               >
-                <Card.Title>{note.title}</Card.Title>
-              </View>
-              <Card.Divider />
-              <View
-                style={{
-                  width: "100%",
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
+                <Input
+                  label="Title"
+                  placeholder="Enter note title"
+                  value={noteToEdit.title}
+                  onChangeText={(value) => handleInputChange("title", value)}
+                />
+                <Input
+                  label="Content"
+                  placeholder="Enter note content"
+                  value={noteToEdit.content}
+                  onChangeText={(value) => handleInputChange("content", value)}
+                />
+                <Input
+                  label="Deadline"
+                  placeholder="Enter deadline"
+                  value={noteToEdit.deadline}
+                  onChangeText={(value) => handleInputChange("deadline", value)}
+                />
+                <View style={{flexDirection:"row",width:"100%",justifyContent:"space-between"}}>
+
+                <Button title="Cancel" onPress={()=>toggleEditOverlay(note)} />
+                <Button title="Confirm" onPress={()=>editNote(note.id)} />
+                </View>
+              </Overlay>
+              <Card
+                key={note.id}
+                containerStyle={{ width: "90%", margin: 10}}
               >
                 <View
                   style={{
-                    width: "70%",
+                    flexDirection: "row",
+                    justifyContent: "space-between",
                   }}
                 >
-                  <Text>{note.content}</Text>
+                  <Card.Title>{note.title}</Card.Title>
                 </View>
+                <Card.Divider />
                 <View
                   style={{
-                    width: "20%",
+                    width: "100%",
                     flexDirection: "row",
                     alignItems: "center",
                   }}
                 >
-                  <Icon
-                    name="pencil"
-                    type="font-awesome"
-                    size={15}
-                    reverse
-                    onPress={() => console.log("Edit button pressed")}
-                  />
-                  <Icon
-                    name="trash"
-                    type="font-awesome"
-                    size={15}
-                    reverse
-                    onPress={() => console.log("Delete button pressed")}
-                  />
+                  <View
+                    style={{
+                      width: "70%",
+                    }}
+                  >
+                    <Text>{note.content}</Text>
+                  </View>
+                  <View
+                    style={{
+                      width: "20%",
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Icon
+                      name="pencil"
+                      type="font-awesome"
+                      size={15}
+                      reverse
+                      onPress={()=>toggleEditOverlay(note)}
+                    />
+                    <Icon
+                      name="trash"
+                      type="font-awesome"
+                      size={15}
+                      reverse
+                      onPress={() => deleteNote(note.id)}
+                    />
+                  </View>
                 </View>
-              </View>
-            </Card>
+              </Card>
+            </React.Fragment>
           ))}
         </ScrollView>
       </View>
@@ -310,6 +409,32 @@ const styles = StyleSheet.create({
     height: 70,
     backgroundColor: "#fff",
     borderRadius: 100,
+  },
+  container: {
+    width: "20%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "white",
+    padding: 10,
+  },
+  menuContainer: {
+    position: "absolute",
+    left: -300,
+    top: 0,
+    width: 250,
+    backgroundColor: "white",
+    padding: 10,
+  },
+  closeButton: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "black",
+    marginBottom: 10,
+  },
+  menuItem: {
+    fontSize: 16,
+    padding: 10,
   },
 });
 export default App;
