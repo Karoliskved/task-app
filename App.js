@@ -66,22 +66,23 @@ const theme = createTheme({
 //   }
 // };
 const App = () => {
+  const date = new Date()
   const [notes, setNotes] = useState([
     {
       id: 1,
       content: "walk the dog",
       title: "Note 1",
       dateCreated: "2023-04-19",
-      deadlineDate: "2023-04-21",
-      deadlineTime: "13:00",
+      deadlineDate: new Date(),
+      deadlineTime: new Date(),
     },
     {
       id: 2,
       content: "read 50 pages of a book",
       title: "Note 2",
       dateCreated: "2023-05-19",
-      deadlineDate: "2023-06-01",
-      deadlineTime: "15:30",
+      deadlineDate: new Date(),
+      deadlineTime: new Date(),
     },
   ]);
   const [filteredNotes, setFilteredNotes] = useState([...notes]);
@@ -170,22 +171,22 @@ const App = () => {
     setVisibleEdit(!visibleEdit);
 
   };
-  const locale = locale;
+  const locale = "lt-LT";
   const [datePickerHidden, setDatePickerHidden] = useState(true);
   const [timePickerHidden, setTimePickerHidden] = useState(true);
-  const [date, setDate] = useState(new Date());
-  const [time, setTime] = useState(new Date().toLocaleTimeString(locale));
+  // const [date, setDate] = useState(new Date());
+  // const [time, setTime] = useState(new Date());
   const handleDateChange = (_, selectedDate) => {
-    const currentDate = selectedDate || date;
+    const currentDate = selectedDate || noteToEdit.deadlineDate;
     setDatePickerHidden(!datePickerHidden);
     setNoteToEdit({...noteToEdit,["deadlineDate"]: currentDate.toLocaleDateString(locale)})
     setDate(currentDate);
   };
   const handleTimeChange = (_, selectedDate) => {
-    const currentTime = selectedDate.toLocaleTimeString(locale)  || time;
+    const currentTime = selectedDate || noteToEdit.deadlineDate;
     setTimePickerHidden(!timePickerHidden);
-    setNoteToEdit({...noteToEdit,["deadlineTime"]: currentTime})
-    setTime(currentTime);
+    setNoteToEdit({...noteToEdit,["deadlineTime"]: currentTime.toLocaleTimeString(locale).replace(/(.*)\D\d+/, '$1')})
+    setDate(currentTime);
   };
   return (
     <ThemeProvider theme={theme}>
@@ -281,20 +282,20 @@ const App = () => {
                 <Input
                   label="Deadline date"
                   placeholder="Enter deadline date"
-                  value={noteToEdit.deadlineDate}
+                  value={note.deadlineDate.toLocaleDateString(locale)}
                   rightIcon={<Icon name="calendar" onPress={()=>setDatePickerHidden(!datePickerHidden)} type="font-awesome"/>}
                   onChangeText={(value) => handleInputChange("deadlineDate", value)}
                 />
                 <Input
                   label="Deadline time"
                   placeholder="Enter deadline time"
-                  value={noteToEdit.deadlineTime}
+                  value={note.deadlineTime.toLocaleTimeString(locale)}
                   
                   rightIcon={<Icon name="clock-o" onPress={()=>setTimePickerHidden(!timePickerHidden)} type="font-awesome"/>}
                   onChangeText={(value) => handleInputChange("deadlineTime", value)}
                 />
-                {!datePickerHidden && <DateTimePicker locale={locale} is24Hour={true} onChange={handleDateChange} value={date} />}
-                {!timePickerHidden && <DateTimePicker locale={locale} is24Hour={true} mode="time" onChange={handleTimeChange}  value={date} />}
+                {!datePickerHidden && <DateTimePicker locale={locale} is24Hour={true} onChange={handleDateChange} value={noteToEdit.deadlineDate} />}
+                {!timePickerHidden && <DateTimePicker locale={locale} is24Hour={true} mode="time" onChange={handleTimeChange}  value={noteToEdit.deadlineDate} />}
                 <View style={{flexDirection:"row",width:"100%",justifyContent:"space-between"}}>
                 <Button title="Cancel" onPress={()=>toggleEditOverlay(note)} />
                 <Button title="Confirm" onPress={()=>editNote(note.id)} />
