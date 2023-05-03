@@ -9,7 +9,9 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  NativeModules
+  NativeModules,
+  AppState,
+  PermissionsAndroid,
 } from "react-native";
 import {
   Button,
@@ -22,11 +24,12 @@ import {
   Icon,
   FAB,
   Overlay,
-  ListItem,
   Input,
 } from "@rneui/themed";
 import DateTimePicker from "@react-native-community/datetimepicker";
-// import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import uuid from "react-native-uuid";
+
 const theme = createTheme({
   lightColors: {
     ...Platform.select({
@@ -42,62 +45,63 @@ const theme = createTheme({
   },
 });
 // save notes to local storage
-// const saveNotes = async (key, value) => {
-//   try {
-//     const jsonValue = JSON.stringify(value);
-//     await AsyncStorage.setItem(key, jsonValue);
-//     console.log('Notes saved successfully');
-//   } catch (error) {
-//     console.log('Error saving notes:', error);
-//   }
-// };
+const saveNotes = async (key, value) => {
+  try {
+    const jsonValue = JSON.stringify(value);
+    await AsyncStorage.setItem(key, jsonValue);
+    console.log("Notes saved successfully");
+  } catch (error) {
+    console.log("Error saving notes:", error);
+  }
+};
 // retrieve notes from local storage
-// const getNotes = async (key) => {
-//   try {
-//     const jsonValue = await AsyncStorage.getItem(key);
-//     if (jsonValue !== null) {
-//       const notes = JSON.parse(jsonValue);
-//       console.log('Notes retrieved successfully:', notes);
-//     } else {
-//       console.log('Notes not found');
-//     }
-//   } catch (error) {
-//     console.log('Error retrieving notes:', error);
-//   }
-// };
+const getNotes = async (key) => {
+  try {
+    const jsonValue = await AsyncStorage.getItem(key);
+    if (jsonValue !== null) {
+      const notes = JSON.parse(jsonValue);
+      console.log("Notes retrieved successfully:", notes);
+      return notes;
+    } else {
+      console.log("Notes not found");
+    }
+  } catch (error) {
+    console.log("Error retrieving notes:", error);
+  }
+};
+
 const App = () => {
-  const [locale, setLocale] = useState(undefined)
-  const [notes, setNotes] = useState([
-    {
-      id: 1,
-      content: "walk the dog",
-      title: "Note 1",
-      dateCreated: "2023-04-19",
-      deadlineDate: new Date(),
-    },
-    {
-      id: 2,
-      content: "read 50 pages of a book",
-      title: "Note 2",
-      dateCreated: "2023-05-19",
-      deadlineDate: new Date(),
-    },
-  ]);
+  const [locale, setLocale] = useState(undefined);
+  const [notes, setNotes] = useState([]);
   const [filteredNotes, setFilteredNotes] = useState([...notes]);
-  //  retrieve notes from local storage
-  useEffect(() => {
-    // let notes = getNotes('notes');
-    // setNotes(notes)
-    // setFilteredNotes(notes)
-    const locale = NativeModules.I18nManager.localeIdentifier;
-    setLocale(locale === undefined ? "en-US" : locale.replace("_","-"))
-  }, [])
-  console.log(locale);
-  const [searchValue, setSearchValue] = useState("");
-  const [isHidden, setIsHidden] = useState(true);
+  const [visibleAddNote, setVisibleAddNote] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [slideAnim] = useState(new Animated.Value(400));
   const { width } = Dimensions.get("window");
+  const [noteToEdit, setNoteToEdit] = useState({
+    id: 0,
+    content: "",
+    title: "",
+    dateCreated: new Date(),
+    deadlineDate: new Date(),
+  });
+  const [searchValue, setSearchValue] = useState("");
+  const [visibleEditNote, setVisibleEditNote] = useState(false);
+  const [datePickerHidden, setDatePickerHidden] = useState(true);
+  const [timePickerHidden, setTimePickerHidden] = useState(true);
+  
+  //  retrieve notes from local storage
+  useEffect(() => {
+    const retrieveNotes = async () => {
+      let notes = await getNotes("notes");
+      setNotes(notes);
+      setFilteredNotes(notes);
+    };
+    retrieveNotes();
+    // Get User locale
+    const locale = NativeModules.I18nManager.localeIdentifier;
+    setLocale(locale === undefined ? "en-US" : locale.replace("_", "-"));
+  }, []);
   const toggleMenu = () => {
     setShowMenu(!showMenu);
     Animated.timing(slideAnim, {
@@ -106,9 +110,6 @@ const App = () => {
       useNativeDriver: true,
     }).start();
   };
-  const [newTitle, setnewTitle] = useState("");
-  const [newDescription, setnewDescription] = useState("");
-  const [newDate, setnewDate] = useState("");
   const filterNotes = () => {
     if (searchValue === "") return;
     const filteredNotes = notes.filter((note) =>
@@ -116,76 +117,66 @@ const App = () => {
     );
     setFilteredNotes(filteredNotes);
   };
-  const addNotes = (title, desc, deadline) => {
-    //console.log("addclick");
-    setIsHidden(!isHidden);
-    //console.log(notes);
-    notesCopy = [...notes];
-    newNotesArray = notesCopy.concat([
-      {
-        id: notes[notes.length - 1].id + 1,
-        content: desc,
-        title: title,
-        dateCreated: new Date(),
-        deadline: deadline,
-      },
-    ]);
-    // console.log(newNotesArray);
-    setNotes(newNotesArray);
-    //console.log(notes);
-    setFilteredNotes(newNotesArray);
+
+  const toggleAddNoteOverlay = () => {
+    setNoteToEdit({
+      id: 0,
+      content: "",
+      title: "",
+      dateCreated: new Date(),
+      deadlineDate: new Date(),
+    });
+    setVisibleAddNote(!visibleAddNote);
   };
-  const handleAdd = () => {
-    //console.log("handleadd");
-    //console.log(newTitle);
-    //console.log(newDescription);
-    // console.log(newDate);
-    addNotes(newTitle, newDescription, newDate);
+  const handleAdd = async() => {
+    setVisibleAddNote(!visibleAddNote);
+    const newNote = {
+      id: uuid.v4(),
+      content: noteToEdit.content,
+      title: noteToEdit.title,
+      dateCreated: new Date(),
+      deadlineDate: noteToEdit.deadlineDate,
+    };
+    setNotes([...notes, newNote]);
+    setFilteredNotes([...notes, newNote]);
+    await saveNotes("notes", [...notes, newNote]);
   };
-  const deleteNote = (id) => {
+  const deleteNote = async (id) => {
     const updatedNotes = notes.filter((note) => note.id !== id);
-    setFilteredNotes(updatedNotes);
-    setNotes(updatedNotes);
+    setFilteredNotes([...updatedNotes]);
+    setNotes([...updatedNotes]);
+    await saveNotes("notes", updatedNotes);
   };
-  const [noteToEdit, setNoteToEdit] = useState({
-    id: 0,
-    content: "",
-    title: "",
-    dateCreated: new Date(),
-    deadlineDate: new Date(),
-  });
+
   const handleInputChange = (name, value) => {
     setNoteToEdit({ ...noteToEdit, [name]: value });
   };
 
-  const editNote = () => {
+  const editNote =  async() => {
     const updatedNotes = notes.map((note) =>
       note.id === noteToEdit.id ? noteToEdit : note
     );
     setFilteredNotes([...updatedNotes]);
     setNotes([...updatedNotes]);
+    await saveNotes("notes", updatedNotes);
     toggleEditOverlay();
   };
 
-  const [visibleEdit, setVisibleEdit] = useState(false);
-
   const toggleEditOverlay = (note) => {
-    if (visibleEdit) {
+    if (visibleEditNote) {
       setNoteToEdit({
-        id: 0,
+        id: note.id,
         content: "",
         title: "",
         dateCreated: new Date(),
         deadlineDate: new Date(),
-        deadlineTime: new Date(),
       });
     } else {
       setNoteToEdit({ ...note });
     }
-    setVisibleEdit(!visibleEdit);
+    setVisibleEditNote(!visibleEditNote);
   };
-  const [datePickerHidden, setDatePickerHidden] = useState(true);
-  const [timePickerHidden, setTimePickerHidden] = useState(true);
+
   const handleDateChange = (_, selectedDate) => {
     const currentDate = selectedDate || noteToEdit.deadlineDate;
     setDatePickerHidden(!datePickerHidden);
@@ -271,7 +262,7 @@ const App = () => {
           {filteredNotes.map((note) => (
             <React.Fragment key={note.id}>
               <Overlay
-                isVisible={visibleEdit}
+                isVisible={visibleEditNote}
                 onBackdropPress={() => toggleEditOverlay(note)}
                 fullScreen
               >
@@ -305,7 +296,9 @@ const App = () => {
                 <Input
                   label="Deadline time"
                   placeholder="Enter deadline time"
-                  value={noteToEdit.deadlineDate.toLocaleTimeString(locale).replace(/(.*)\D\d+/, '$1')}
+                  value={noteToEdit.deadlineDate
+                    .toLocaleTimeString(locale)
+                    .replace(/(.*)\D\d+/, "$1")}
                   rightIcon={
                     <Icon
                       name="clock-o"
@@ -322,7 +315,7 @@ const App = () => {
                     locale={locale}
                     is24Hour={true}
                     onChange={handleDateChange}
-                    value={noteToEdit.deadlineDate}
+                    value={note.deadlineDate}
                   />
                 )}
                 {!timePickerHidden && (
@@ -332,7 +325,7 @@ const App = () => {
                     minuteInterval={1}
                     mode="time"
                     onChange={handleTimeChange}
-                    value={noteToEdit.deadlineDate}
+                    value={note.deadlineDate}
                   />
                 )}
                 <View
@@ -401,60 +394,94 @@ const App = () => {
           ))}
         </ScrollView>
       </View>
-      {!isHidden && (
-        <View
-          style={{
-            width: "80%",
-            display: "flex",
-            height: 400,
-            justifyContent: "center",
-            alignItems: "center",
-            //overflow: "scrollY",
-            marginTop: 10,
-            position: "absolute",
-            backgroundColor: "#fff",
-            borderWidth: 5,
-            right: "10%",
-            bottom: 120,
-          }}
+      <View
+        style={{
+          width: "80%",
+          display: "flex",
+          height: 400,
+          justifyContent: "center",
+          alignItems: "center",
+          marginTop: 10,
+          backgroundColor: "#fff",
+          right: "10%",
+          bottom: 120,
+        }}
+      >
+        <Overlay
+          isVisible={visibleAddNote}
+          onBackdropPress={() => setIsHidden(!isHidden)}
+          fullScreen
         >
-          <Text>Title</Text>
-          <TextInput
-            style={{
-              height: 40,
-              margin: 12,
-              borderWidth: 1,
-              padding: 10,
-              width: 300,
-            }}
-            onChangeText={(text) => setnewTitle(text)}
+          <Input
+            label="Title"
+            placeholder="Enter note title"
+            value={noteToEdit.title}
+            onChangeText={(value) => handleInputChange("title", value)}
           />
-          <Text>description</Text>
-          <TextInput
-            style={{
-              height: 40,
-              margin: 12,
-              borderWidth: 1,
-              padding: 10,
-              width: 300,
-            }}
-            onChangeText={(text) => setnewDescription(text)}
+          <Input
+            label="Content"
+            placeholder="Enter note content"
+            value={noteToEdit.content}
+            onChangeText={(value) => handleInputChange("content", value)}
           />
-          <Text>Due by date</Text>
-          <TextInput
-            style={{
-              height: 40,
-              margin: 12,
-              borderWidth: 1,
-              padding: 10,
-              width: 300,
-            }}
-            onChangeText={(text) => setnewDate(text)}
+          <Input
+            label="Deadline date"
+            placeholder="Enter deadline date"
+            value={noteToEdit.deadlineDate.toLocaleDateString(locale)}
+            rightIcon={
+              <Icon
+                name="calendar"
+                onPress={() => setDatePickerHidden(!datePickerHidden)}
+                type="font-awesome"
+              />
+            }
+            onChangeText={(value) => handleInputChange("deadlineDate", value)}
           />
-          <Text>test</Text>
-          <Button title="add button" onPress={() => handleAdd()} />
-        </View>
-      )}
+          <Input
+            label="Deadline time"
+            placeholder="Enter deadline time"
+            value={noteToEdit.deadlineDate
+              .toLocaleTimeString(locale)
+              .replace(/(.*)\D\d+/, "$1")}
+            rightIcon={
+              <Icon
+                name="clock-o"
+                onPress={() => setTimePickerHidden(!timePickerHidden)}
+                type="font-awesome"
+              />
+            }
+            onChangeText={(value) => handleInputChange("deadlineDate", value)}
+          />
+          {!datePickerHidden && (
+            <DateTimePicker
+              locale={locale}
+              is24Hour={true}
+              onChange={handleDateChange}
+              value={noteToEdit.deadlineDate}
+            />
+          )}
+          {!timePickerHidden && (
+            <DateTimePicker
+              locale={locale}
+              is24Hour={true}
+              minuteInterval={1}
+              mode="time"
+              onChange={handleTimeChange}
+              value={noteToEdit.deadlineDate}
+            />
+          )}
+          <View
+            style={{
+              flexDirection: "row",
+              width: "100%",
+              justifyContent: "space-between",
+            }}
+          >
+            <Button title="Cancel" onPress={toggleAddNoteOverlay} />
+            <Button title="Add Note" onPress={() => handleAdd()} />
+          </View>
+        </Overlay>
+      </View>
       <FAB
         icon={{ name: "add", color: "white" }}
         color="green"
@@ -467,7 +494,7 @@ const App = () => {
           right: 170,
           bottom: 50,
         }}
-        onPress={() => setIsHidden(!isHidden)}
+        onPress={toggleAddNoteOverlay}
       />
     </ThemeProvider>
   );
