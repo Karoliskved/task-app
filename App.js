@@ -9,8 +9,8 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  NativeModules
 } from "react-native";
-
 import {
   Button,
   Card,
@@ -25,7 +25,7 @@ import {
   ListItem,
   Input,
 } from "@rneui/themed";
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from "@react-native-community/datetimepicker";
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 const theme = createTheme({
   lightColors: {
@@ -66,7 +66,7 @@ const theme = createTheme({
 //   }
 // };
 const App = () => {
-  const date = new Date()
+  const [locale, setLocale] = useState(undefined)
   const [notes, setNotes] = useState([
     {
       id: 1,
@@ -74,7 +74,6 @@ const App = () => {
       title: "Note 1",
       dateCreated: "2023-04-19",
       deadlineDate: new Date(),
-      deadlineTime: new Date(),
     },
     {
       id: 2,
@@ -82,16 +81,18 @@ const App = () => {
       title: "Note 2",
       dateCreated: "2023-05-19",
       deadlineDate: new Date(),
-      deadlineTime: new Date(),
     },
   ]);
   const [filteredNotes, setFilteredNotes] = useState([...notes]);
   //  retrieve notes from local storage
-  // useEffect(() => {
-  //   let notes = getNotes('notes');
-  //   setNotes(notes)
-  //   setFilteredNotes(notes)
-  // }, [])
+  useEffect(() => {
+    // let notes = getNotes('notes');
+    // setNotes(notes)
+    // setFilteredNotes(notes)
+    const locale = NativeModules.I18nManager.localeIdentifier;
+    setLocale(locale === undefined ? "en-US" : locale.replace("_","-"))
+  }, [])
+  console.log(locale);
   const [searchValue, setSearchValue] = useState("");
   const [isHidden, setIsHidden] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
@@ -144,11 +145,17 @@ const App = () => {
   const deleteNote = (id) => {
     const updatedNotes = notes.filter((note) => note.id !== id);
     setFilteredNotes(updatedNotes);
-    setNotes(updatedNotes)
+    setNotes(updatedNotes);
   };
-  const [noteToEdit, setNoteToEdit] = useState({});
+  const [noteToEdit, setNoteToEdit] = useState({
+    id: 0,
+    content: "",
+    title: "",
+    dateCreated: new Date(),
+    deadlineDate: new Date(),
+  });
   const handleInputChange = (name, value) => {
-    setNoteToEdit({...noteToEdit,[name]: value});
+    setNoteToEdit({ ...noteToEdit, [name]: value });
   };
 
   const editNote = () => {
@@ -156,37 +163,38 @@ const App = () => {
       note.id === noteToEdit.id ? noteToEdit : note
     );
     setFilteredNotes([...updatedNotes]);
-    setNotes([...updatedNotes])
-    toggleEditOverlay()
+    setNotes([...updatedNotes]);
+    toggleEditOverlay();
   };
-  
+
   const [visibleEdit, setVisibleEdit] = useState(false);
 
   const toggleEditOverlay = (note) => {
     if (visibleEdit) {
-      setNoteToEdit({})
+      setNoteToEdit({
+        id: 0,
+        content: "",
+        title: "",
+        dateCreated: new Date(),
+        deadlineDate: new Date(),
+        deadlineTime: new Date(),
+      });
     } else {
-      setNoteToEdit({...note})
+      setNoteToEdit({ ...note });
     }
     setVisibleEdit(!visibleEdit);
-
   };
-  const locale = "lt-LT";
   const [datePickerHidden, setDatePickerHidden] = useState(true);
   const [timePickerHidden, setTimePickerHidden] = useState(true);
-  // const [date, setDate] = useState(new Date());
-  // const [time, setTime] = useState(new Date());
   const handleDateChange = (_, selectedDate) => {
     const currentDate = selectedDate || noteToEdit.deadlineDate;
     setDatePickerHidden(!datePickerHidden);
-    setNoteToEdit({...noteToEdit,["deadlineDate"]: currentDate.toLocaleDateString(locale)})
-    setDate(currentDate);
+    setNoteToEdit({ ...noteToEdit, ["deadlineDate"]: currentDate });
   };
   const handleTimeChange = (_, selectedDate) => {
     const currentTime = selectedDate || noteToEdit.deadlineDate;
     setTimePickerHidden(!timePickerHidden);
-    setNoteToEdit({...noteToEdit,["deadlineTime"]: currentTime.toLocaleTimeString(locale).replace(/(.*)\D\d+/, '$1')})
-    setDate(currentTime);
+    setNoteToEdit({ ...noteToEdit, ["deadlineDate"]: currentTime });
   };
   return (
     <ThemeProvider theme={theme}>
@@ -264,7 +272,7 @@ const App = () => {
             <React.Fragment key={note.id}>
               <Overlay
                 isVisible={visibleEdit}
-                onBackdropPress={()=>toggleEditOverlay(note)}
+                onBackdropPress={() => toggleEditOverlay(note)}
                 fullScreen
               >
                 <Input
@@ -282,29 +290,66 @@ const App = () => {
                 <Input
                   label="Deadline date"
                   placeholder="Enter deadline date"
-                  value={note.deadlineDate.toLocaleDateString(locale)}
-                  rightIcon={<Icon name="calendar" onPress={()=>setDatePickerHidden(!datePickerHidden)} type="font-awesome"/>}
-                  onChangeText={(value) => handleInputChange("deadlineDate", value)}
+                  value={noteToEdit.deadlineDate.toLocaleDateString(locale)}
+                  rightIcon={
+                    <Icon
+                      name="calendar"
+                      onPress={() => setDatePickerHidden(!datePickerHidden)}
+                      type="font-awesome"
+                    />
+                  }
+                  onChangeText={(value) =>
+                    handleInputChange("deadlineDate", value)
+                  }
                 />
                 <Input
                   label="Deadline time"
                   placeholder="Enter deadline time"
-                  value={note.deadlineTime.toLocaleTimeString(locale)}
-                  
-                  rightIcon={<Icon name="clock-o" onPress={()=>setTimePickerHidden(!timePickerHidden)} type="font-awesome"/>}
-                  onChangeText={(value) => handleInputChange("deadlineTime", value)}
+                  value={noteToEdit.deadlineDate.toLocaleTimeString(locale).replace(/(.*)\D\d+/, '$1')}
+                  rightIcon={
+                    <Icon
+                      name="clock-o"
+                      onPress={() => setTimePickerHidden(!timePickerHidden)}
+                      type="font-awesome"
+                    />
+                  }
+                  onChangeText={(value) =>
+                    handleInputChange("deadlineDate", value)
+                  }
                 />
-                {!datePickerHidden && <DateTimePicker locale={locale} is24Hour={true} onChange={handleDateChange} value={noteToEdit.deadlineDate} />}
-                {!timePickerHidden && <DateTimePicker locale={locale} is24Hour={true} mode="time" onChange={handleTimeChange}  value={noteToEdit.deadlineDate} />}
-                <View style={{flexDirection:"row",width:"100%",justifyContent:"space-between"}}>
-                <Button title="Cancel" onPress={()=>toggleEditOverlay(note)} />
-                <Button title="Confirm" onPress={()=>editNote(note.id)} />
+                {!datePickerHidden && (
+                  <DateTimePicker
+                    locale={locale}
+                    is24Hour={true}
+                    onChange={handleDateChange}
+                    value={noteToEdit.deadlineDate}
+                  />
+                )}
+                {!timePickerHidden && (
+                  <DateTimePicker
+                    locale={locale}
+                    is24Hour={true}
+                    minuteInterval={1}
+                    mode="time"
+                    onChange={handleTimeChange}
+                    value={noteToEdit.deadlineDate}
+                  />
+                )}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    width: "100%",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Button
+                    title="Cancel"
+                    onPress={() => toggleEditOverlay(note)}
+                  />
+                  <Button title="Confirm" onPress={() => editNote(note.id)} />
                 </View>
               </Overlay>
-              <Card
-                key={note.id}
-                containerStyle={{ width: "90%", margin: 10}}
-              >
+              <Card key={note.id} containerStyle={{ width: "90%", margin: 10 }}>
                 <View
                   style={{
                     flexDirection: "row",
@@ -340,7 +385,7 @@ const App = () => {
                       type="font-awesome"
                       size={15}
                       reverse
-                      onPress={()=>toggleEditOverlay(note)}
+                      onPress={() => toggleEditOverlay(note)}
                     />
                     <Icon
                       name="trash"
