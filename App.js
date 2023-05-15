@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   Platform,
@@ -29,6 +29,8 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import uuid from "react-native-uuid";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
 
 const theme = createTheme({
   lightColors: {
@@ -64,11 +66,20 @@ const getNotes = async (key) => {
       return notes;
     } else {
       console.log("Notes not found");
+      const notes = [];
+      return notes;
     }
   } catch (error) {
     console.log("Error retrieving notes:", error);
   }
 };
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
 
 const App = () => {
   const [locale, setLocale] = useState(undefined);
@@ -89,7 +100,35 @@ const App = () => {
   const [visibleEditNote, setVisibleEditNote] = useState(false);
   const [datePickerHidden, setDatePickerHidden] = useState(true);
   const [timePickerHidden, setTimePickerHidden] = useState(true);
-  
+  //for notifications
+  const [expoPushToken, setExpoPushToken] = useState("");
+  const [notification, setNotification] = useState(false);
+  const notificationListener = useRef();
+  const responseListener = useRef();
+  // notification set up
+  useEffect(() => {
+    registerForPushNotificationsAsync().then((token) =>
+      setExpoPushToken(token)
+    );
+
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
+        setNotification(notification);
+      });
+
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        console.log(response);
+      });
+
+    return () => {
+      Notifications.removeNotificationSubscription(
+        notificationListener.current
+      );
+      Notifications.removeNotificationSubscription(responseListener.current);
+    };
+  }, []);
+
   //  retrieve notes from local storage
   useEffect(() => {
     const retrieveNotes = async () => {
@@ -128,38 +167,47 @@ const App = () => {
     });
     setVisibleAddNote(!visibleAddNote);
   };
-  const handleAdd = async() => {
+  const handleAdd = async () => {
     setVisibleAddNote(!visibleAddNote);
+    console.log(noteToEdit.deadlineDate);
+    let date = new Date(noteToEdit.deadlineDate);
+    console.log(date);
+    //Add 10 seconds to the current date to test it.
+    date.setSeconds(date.getSeconds() + 10);
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: noteToEdit.title + " is due now",
+        body: noteToEdit.content,
+      },
+      trigger: { date: date },
+    });
     const newNote = {
       id: uuid.v4(),
       content: noteToEdit.content,
       title: noteToEdit.title,
       dateCreated: new Date(),
       deadlineDate: noteToEdit.deadlineDate,
+      notificationID: identifier,
     };
     setNotes([...notes, newNote]);
     setFilteredNotes([...notes, newNote]);
+    //add notification when the task is due
+
     await saveNotes("notes", [...notes, newNote]);
   };
   const deleteNote = async (id) => {
+    const notificationIDToDelete = notes.find((note) => note.id == id);
     const updatedNotes = notes.filter((note) => note.id !== id);
     setFilteredNotes([...updatedNotes]);
     setNotes([...updatedNotes]);
+    await Notifications.cancelScheduledNotificationAsync(
+      notificationIDToDelete.notificationID
+    );
     await saveNotes("notes", updatedNotes);
   };
 
   const handleInputChange = (name, value) => {
     setNoteToEdit({ ...noteToEdit, [name]: value });
-  };
-
-  const editNote =  async() => {
-    const updatedNotes = notes.map((note) =>
-      note.id === noteToEdit.id ? noteToEdit : note
-    );
-    setFilteredNotes([...updatedNotes]);
-    setNotes([...updatedNotes]);
-    await saveNotes("notes", updatedNotes);
-    toggleEditOverlay();
   };
 
   const toggleEditOverlay = (note) => {
@@ -176,7 +224,15 @@ const App = () => {
     }
     setVisibleEditNote(!visibleEditNote);
   };
-
+  const editNote = async () => {
+    const updatedNotes = notes.map((note) =>
+      note.id === noteToEdit.id ? noteToEdit : note
+    );
+    setFilteredNotes([...updatedNotes]);
+    setNotes([...updatedNotes]);
+    await saveNotes("notes", updatedNotes);
+    toggleEditOverlay();
+  };
   const handleDateChange = (_, selectedDate) => {
     const currentDate = selectedDate || noteToEdit.deadlineDate;
     setDatePickerHidden(!datePickerHidden);
@@ -187,6 +243,51 @@ const App = () => {
     setTimePickerHidden(!timePickerHidden);
     setNoteToEdit({ ...noteToEdit, ["deadlineDate"]: currentTime });
   };
+  //notifications
+  async function schedulePushNotification() {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "You've got mail! 📬",
+        body: "Here is the notification body",
+        data: { data: "goes here" },
+      },
+      trigger: { seconds: 2 },
+    });
+  }
+
+  async function registerForPushNotificationsAsync() {
+    let token;
+
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+      });
+    }
+
+    if (Device.isDevice) {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        alert("Failed to get push token for push notification!");
+        return;
+      }
+      token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log(token);
+    } else {
+      alert("Must use physical device for Push Notifications");
+    }
+
+    return token;
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <View
