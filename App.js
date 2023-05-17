@@ -27,6 +27,7 @@ import uuid from "react-native-uuid";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Picker } from "@react-native-picker/picker";
+import { LinearGradient } from "expo-linear-gradient";
 
 const theme = createTheme({
   lightColors: {
@@ -87,10 +88,13 @@ const App = () => {
     id: 0,
     content: "",
     title: "",
+
     priority: "Low",
     category: "Personal",
+
     dateCreated: new Date(),
     deadlineDate: new Date(),
+
   });
   const [filter, setFilter] = useState({
     category: "Personal",
@@ -184,25 +188,91 @@ const App = () => {
     setVisibleAddNote(!visibleAddNote);
     console.log(noteToEdit.deadlineDate);
     let date = new Date(noteToEdit.deadlineDate);
-    console.log(date);
+
     //Add 10 seconds to the current date to test it.
-    date.setSeconds(date.getSeconds() + 10);
-    const identifier = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: noteToEdit.title + " is due now",
-        body: noteToEdit.content,
-      },
-      trigger: { date: date },
-    });
+
+    const notificationIDs = [];
+    console.log(noteToEdit.priority);
+    if (noteToEdit.priority == "green") {
+      date.setSeconds(date.getSeconds() + 10);
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: noteToEdit.title + " is due now",
+          body: noteToEdit.content,
+        },
+        trigger: { date: date },
+      });
+      notificationIDs.push(identifier);
+    } else if (noteToEdit.priority == "orange") {
+      date.setSeconds(date.getSeconds() + 10);
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: noteToEdit.title + " is due now",
+          body: noteToEdit.content,
+        },
+        trigger: { date: date },
+      });
+      notificationIDs.push(identifier);
+      //date.setSeconds(0);
+      date.setHours(date.getHours() - 1);
+      date.setMinutes(date.getMinutes() + 1);
+      const identifierHourBefore =
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: noteToEdit.title + " is due in an hour",
+            body: noteToEdit.content,
+          },
+          trigger: { date: date },
+        });
+      notificationIDs.push(identifierHourBefore);
+    } else if (noteToEdit.priority == "red") {
+      date.setSeconds(date.getSeconds() + 10);
+      console.log(date);
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: noteToEdit.title + " is in now",
+          body: noteToEdit.content,
+        },
+        trigger: { date: date },
+      });
+      notificationIDs.push(identifier);
+      //date.setSeconds(0);
+      date.setHours(date.getHours() - 1);
+      date.setMinutes(date.getMinutes() + 1);
+      console.log(date);
+      const identifierHourBefore =
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: noteToEdit.title + " is due in an hour",
+            body: noteToEdit.content,
+          },
+          trigger: { date: date },
+        });
+      notificationIDs.push(identifierHourBefore);
+      date.setSeconds(0);
+      date.setHours(0);
+      console.log(date);
+      const identifierDay = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: noteToEdit.title + " is due today",
+          body: noteToEdit.content,
+        },
+        trigger: { date: date },
+      });
+      notificationIDs.push(identifierDay);
+    }
+
     const newNote = {
       id: uuid.v4(),
       content: noteToEdit.content,
       title: noteToEdit.title,
       dateCreated: new Date(),
+
       category: noteToEdit.category,
       deadlineDate: noteToEdit.deadlineDate,
+
       priority: noteToEdit.priority,
-      notificationID: identifier,
+      notificationIDs: notificationIDs,
     };
     setNotes([...notes, newNote]);
     setFilteredNotes([...notes, newNote]);
@@ -215,10 +285,11 @@ const App = () => {
     const updatedNotes = notes.filter((note) => note.id !== id);
     setFilteredNotes([...updatedNotes]);
     setNotes([...updatedNotes]);
-    await Notifications.cancelScheduledNotificationAsync(
-      notificationIDToDelete.notificationID
-    );
+
     await saveNotes("notes", updatedNotes);
+    notificationIDToDelete.notificationIDs.forEach(async (element) => {
+      await Notifications.cancelScheduledNotificationAsync(element);
+    });
   };
 
   const handleInputChange = (name, value) => {
@@ -236,8 +307,11 @@ const App = () => {
         title: "",
         category: "Personal",
         dateCreated: new Date(),
+
         priority: "Low",
+
         deadlineDate: new Date(),
+
       });
     } else {
       console.log("test1");
@@ -245,6 +319,7 @@ const App = () => {
       console.log("test2");
     }
     console.log(visibleEditNote);
+    console.log(noteToEdit.deadlineDate);
     setVisibleEditNote(!visibleEditNote);
     console.log("test3");
   };
@@ -479,6 +554,7 @@ const App = () => {
                     handleInputChange("deadlineDate", value)
                   }
                 />
+
                 <View style={{ paddingBottom: 25 }}>
                   <Input
                     label="Category"
@@ -513,6 +589,7 @@ const App = () => {
                     <Picker.Item label="High" value="High" />
                   </Picker>
                 </View>
+
                 {!datePickerHidden && (
                   <DateTimePicker
                     locale={locale}
@@ -531,6 +608,7 @@ const App = () => {
                     value={noteToEdit.deadlineDate}
                   />
                 )}
+               
                 <View
                   style={{
                     flexDirection: "row",
@@ -550,6 +628,7 @@ const App = () => {
                 containerStyle={{
                   width: "90%",
                   margin: 10,
+
                   borderColor:
                     note.priority === "Low"
                       ? "green"
@@ -557,13 +636,21 @@ const App = () => {
                       ? "orange"
                       : "red",
                   borderWidth: 2,
+
                 }}
               >
-                <View
+                <LinearGradient
+                  // Background Linear Gradient
+                  colors={["white", "transparent"]}
                   style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: "100%",
+                    borderRadius: 10,
                   }}
+
                 >
                   <Card.Title>{note.title}</Card.Title>
                   <TouchableOpacity onPress={()=>toggleMenuOverlay(note)}>
@@ -658,27 +745,29 @@ const App = () => {
                   </View>
                 </Overlay>
                 <Card.Divider />
+
                 <View
                   style={{
-                    width: "100%",
-                    flexDirection: "row",
-                    alignItems: "center",
+                    padding: 15,
                   }}
                 >
                   <View
                     style={{
-                      width: "70%",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
                     }}
                   >
-                    <Text>{note.content}</Text>
+                    <Card.Title>{note.title}</Card.Title>
                   </View>
+                  <Card.Divider />
                   <View
                     style={{
-                      width: "20%",
+                      width: "100%",
                       flexDirection: "row",
                       alignItems: "center",
                     }}
                   >
+
                     <Icon
                       name="pencil"
                       type="font-awesome"
@@ -693,6 +782,7 @@ const App = () => {
                       raised
                       onPress={() => deleteNote(note.id)}
                     />
+
                   </View>
                 </View>
               </Card>
@@ -844,6 +934,7 @@ const App = () => {
             }
             onChangeText={(value) => handleInputChange("deadlineDate", value)}
           />
+
           <View style={{ paddingBottom: 25 }}>
             <Input label="Category" inputContainerStyle={{ display: "none" }} />
 
@@ -870,6 +961,7 @@ const App = () => {
               <Picker.Item label="High" value="High" />
             </Picker>
           </View>
+
           {!datePickerHidden && (
             <DateTimePicker
               locale={locale}
@@ -888,6 +980,7 @@ const App = () => {
               value={noteToEdit.deadlineDate}
             />
           )}
+
 
           <View
             style={{
