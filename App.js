@@ -94,7 +94,6 @@ const App = () => {
 
     dateCreated: new Date(),
     deadlineDate: new Date(),
-
   });
   const [filter, setFilter] = useState({
     category: "Personal",
@@ -152,7 +151,7 @@ const App = () => {
     const locale = NativeModules.I18nManager.localeIdentifier;
     setLocale(locale === undefined ? "en-US" : locale.replace("_", "-"));
   }, []);
-  
+
   const searchNotes = () => {
     if (searchValue === "") {
       setFilteredNotes(notes);
@@ -167,7 +166,8 @@ const App = () => {
   };
   const filterNotes = () => {
     const filteredNotes = notes.filter(
-      (note) => note.category === filter.category && note.priority === filter.priority
+      (note) =>
+        note.category === filter.category && note.priority === filter.priority
     );
     setFilteredNotes(filteredNotes);
     toggleFilter();
@@ -311,7 +311,6 @@ const App = () => {
         priority: "Low",
 
         deadlineDate: new Date(),
-
       });
     } else {
       console.log("test1");
@@ -335,10 +334,9 @@ const App = () => {
         deadlineDate: new Date(),
       });
     } else {
-      setNoteToEdit({ ...note, ["deadlineDate"]:note.deadlineDate });
+      setNoteToEdit({ ...note, ["deadlineDate"]: note.deadlineDate });
     }
     setShowMenuOverlay(!showMenuOverlay);
-
   };
   const editNote = async () => {
     console.log(notes);
@@ -406,11 +404,10 @@ const App = () => {
     return token;
   }
   const [showMenuOverlay, setShowMenuOverlay] = useState(false);
-  const [showFilterOverlay, setShowFilterOverlay] =
-    useState(false);
+  const [showFilterOverlay, setShowFilterOverlay] = useState(false);
 
   const toggleFilter = () => {
-    setShowFilterOverlay(showFilterOverlay => !showFilterOverlay);
+    setShowFilterOverlay((showFilterOverlay) => !showFilterOverlay);
   };
 
   return (
@@ -608,7 +605,7 @@ const App = () => {
                     value={noteToEdit.deadlineDate}
                   />
                 )}
-               
+
                 <View
                   style={{
                     flexDirection: "row",
@@ -635,8 +632,16 @@ const App = () => {
                       : note.priority === "Medium"
                       ? "orange"
                       : "red",
-                  borderWidth: 2,
-
+                  borderWidth: 1,
+                  backgroundColor:
+                    note.priority === "Low"
+                      ? "green"
+                      : note.priority === "Medium"
+                      ? "orange"
+                      : "red",
+                  flex: 1,
+                  borderRadius: 10,
+                  padding: 0,
                 }}
               >
                 <LinearGradient
@@ -650,10 +655,15 @@ const App = () => {
                     height: "100%",
                     borderRadius: 10,
                   }}
-
+                />
+                <View
+                  style={{
+                    padding: 20,
+                  }}
                 >
                   <Card.Title>{note.title}</Card.Title>
-                  <TouchableOpacity onPress={()=>toggleMenuOverlay(note)}>
+
+                  <TouchableOpacity onPress={() => toggleMenuOverlay(note)}>
                     <View
                       style={{
                         display: "flex",
@@ -668,212 +678,206 @@ const App = () => {
                         type="font-awesome"
                         size={15}
                         raised
-                        onPress={()=>toggleMenuOverlay(note)}
+                        onPress={() => toggleMenuOverlay(note)}
                       />
                     </View>
                   </TouchableOpacity>
-                </View>
-                <Overlay
-                  isVisible={showMenuOverlay}
-                  onBackdropPress={()=>toggleMenuOverlay(note)}
-                >
-                  <View
-                    style={{
-                      width: width * 0.85,
-                      height: height * 0.5,
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      padding: 0,
-                      margin: 0,
-                    }}
+                  <Overlay
+                    isVisible={showMenuOverlay}
+                    onBackdropPress={() => toggleMenuOverlay(note)}
                   >
                     <View
                       style={{
-                        position: "absolute",
-                        top: 0,
-                        right: 0,
-                        height: 100,
-                      }}
-                    >
-                      <Icon
-                        name="close"
-                        raised
-                        size={20}
-                        onPress={()=>toggleMenuOverlay(note)}
-                        type="font-awesome"
-                      />
-                    </View>
-                    <Card
-                      containerStyle={{
+                        width: width * 0.85,
+                        height: height * 0.5,
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
+                        padding: 0,
+                        margin: 0,
                       }}
                     >
                       <View
                         style={{
-                          display: "flex",
-                          flexDirection: "row",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          position: "relative",
+                          position: "absolute",
+                          top: 0,
+                          right: 0,
+                          height: 100,
                         }}
                       >
-                        <Card.Title>Title: {noteToEdit.title}</Card.Title>
+                        <Icon
+                          name="close"
+                          raised
+                          size={20}
+                          onPress={() => toggleMenuOverlay(note)}
+                          type="font-awesome"
+                        />
                       </View>
-                      <Card.Divider />
-                      <Text>Content: {noteToEdit.content}</Text>
-                      <Card.Divider />
-                      <Text>Priority: {noteToEdit.priority}</Text>
-                      <Card.Divider />
+                      <Card
+                        containerStyle={{
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}
+                      >
+                        <View
+                          style={{
+                            display: "flex",
+                            flexDirection: "row",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            position: "relative",
+                          }}
+                        >
+                          <Card.Title>Title: {noteToEdit.title}</Card.Title>
+                        </View>
+                        <Card.Divider />
+                        <Text>Content: {noteToEdit.content}</Text>
+                        <Card.Divider />
+                        <Text>Priority: {noteToEdit.priority}</Text>
+                        <Card.Divider />
 
-                      <Text>Category: {noteToEdit.category}</Text>
-                      <Card.Divider />
+                        <Text>Category: {noteToEdit.category}</Text>
+                        <Card.Divider />
 
-                      <Text>
-                        Date Created:{" "}
-                        {new Date(noteToEdit.dateCreated).toLocaleString(locale)}
-                      </Text>
-                      <Card.Divider />
+                        <Text>
+                          Date Created:{" "}
+                          {new Date(noteToEdit.dateCreated).toLocaleString(
+                            locale
+                          )}
+                        </Text>
+                        <Card.Divider />
 
-                      <Text>
-                        Deadline Date:{" "}
-                        {new Date(noteToEdit.deadlineDate).toLocaleString(locale)}
-                      </Text>
-                    </Card>
-                  </View>
-                </Overlay>
-                <Card.Divider />
-
-                <View
-                  style={{
-                    padding: 15,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <Card.Title>{note.title}</Card.Title>
-                  </View>
+                        <Text>
+                          Deadline Date:{" "}
+                          {new Date(noteToEdit.deadlineDate).toLocaleString(
+                            locale
+                          )}
+                        </Text>
+                      </Card>
+                    </View>
+                  </Overlay>
                   <Card.Divider />
+
                   <View
                     style={{
-                      width: "100%",
-                      flexDirection: "row",
-                      alignItems: "center",
+                      padding: 15,
                     }}
                   >
-
-                    <Icon
-                      name="pencil"
-                      type="font-awesome"
-                      size={15}
-                      raised
-                      onPress={() => toggleEditOverlay(note)}
-                    />
-                    <Icon
-                      name="trash"
-                      type="font-awesome"
-                      size={15}
-                      raised
-                      onPress={() => deleteNote(note.id)}
-                    />
-
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Card.Title>{note.title}</Card.Title>
+                    </View>
+                    <Card.Divider />
+                    <View
+                      style={{
+                        width: "100%",
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Icon
+                        name="pencil"
+                        type="font-awesome"
+                        size={15}
+                        raised
+                        onPress={() => toggleEditOverlay(note)}
+                      />
+                      <Icon
+                        name="trash"
+                        type="font-awesome"
+                        size={15}
+                        raised
+                        onPress={() => deleteNote(note.id)}
+                      />
+                    </View>
                   </View>
                 </View>
               </Card>
-              
             </React.Fragment>
           ))}
-          <Overlay
-                isVisible={showFilterOverlay}
-                onBackdropPress={toggleFilter}
-              >
-                <View
-                  style={{
-                    width: width * 0.85,
-                    height: height * 0.5,
-                    display: "flex",
-                    position: "relative",
-                    padding: 0,
-                    margin: 0,
-                  }}
-                >
-                  
-                  <View style={{ paddingTop: 50 }}>
-                    <Input
-                      label="Filter by category"
-                      inputContainerStyle={{ display: "none" }}
-                    />
+          <Overlay isVisible={showFilterOverlay} onBackdropPress={toggleFilter}>
+            <View
+              style={{
+                width: width * 0.85,
+                height: height * 0.5,
+                display: "flex",
+                position: "relative",
+                padding: 0,
+                margin: 0,
+              }}
+            >
+              <View style={{ paddingTop: 50 }}>
+                <Input
+                  label="Filter by category"
+                  inputContainerStyle={{ display: "none" }}
+                />
 
-                    <Picker
-                      style={{ height: 50, width: 150 }}
-                      selectedValue={filter.category}
-                      onValueChange={(value) =>
-                        setFilter({ ...filter, category: value })
-                      }
-                    >
-                      <Picker.Item label="Personal" value="Personal" />
-                      <Picker.Item label="Work" value="Work" />
-                    </Picker>
-                  </View>
-                  <View style={{ paddingTop: 25 }}>
-                    <Input
-                      label="Filter by priority"
-                      inputContainerStyle={{ display: "none" }}
-                    />
-                    <Picker
-                      selectedValue={filter.priority}
-                      style={{ height: 50, width: 150 }}
-                      onValueChange={(value) =>
-                        setFilter({ ...filter, priority: value })
-                      }
-                    >
-                      <Picker.Item label="Low" value="Low" />
-                      <Picker.Item label="Mid" value="Mid" />
-                      <Picker.Item label="High" value="High" />
-                    </Picker>
-                  </View>
-                  <View
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      position: "absolute",
-                      bottom: 0,
-                      padding: 20,
-                    }}
-                  >
-                    <Button
-                      title="Cancel"
-                      onPress={()=>{
-                        toggleFilter()
-                        setFilteredNotes(notes)
-                      }}
-                    />
-                  </View>
-                  <View
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      position: "absolute",
-                      bottom: 0,
-                      right: 0,
-                      padding: 20,
-                    }}
-                  >
-                    <Button
-                      title="Filter "
-                      onPress={() => filterNotes()}
-                    />
-                  </View>
-                </View>
-              </Overlay>
+                <Picker
+                  style={{ height: 50, width: 150 }}
+                  selectedValue={filter.category}
+                  onValueChange={(value) =>
+                    setFilter({ ...filter, category: value })
+                  }
+                >
+                  <Picker.Item label="Personal" value="Personal" />
+                  <Picker.Item label="Work" value="Work" />
+                </Picker>
+              </View>
+              <View style={{ paddingTop: 25 }}>
+                <Input
+                  label="Filter by priority"
+                  inputContainerStyle={{ display: "none" }}
+                />
+                <Picker
+                  selectedValue={filter.priority}
+                  style={{ height: 50, width: 150 }}
+                  onValueChange={(value) =>
+                    setFilter({ ...filter, priority: value })
+                  }
+                >
+                  <Picker.Item label="Low" value="Low" />
+                  <Picker.Item label="Mid" value="Mid" />
+                  <Picker.Item label="High" value="High" />
+                </Picker>
+              </View>
+              <View
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  position: "absolute",
+                  bottom: 0,
+                  padding: 20,
+                }}
+              >
+                <Button
+                  title="Cancel"
+                  onPress={() => {
+                    toggleFilter();
+                    setFilteredNotes(notes);
+                  }}
+                />
+              </View>
+              <View
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  padding: 20,
+                }}
+              >
+                <Button title="Filter " onPress={() => filterNotes()} />
+              </View>
+            </View>
+          </Overlay>
         </ScrollView>
       </View>
       <View
@@ -980,7 +984,6 @@ const App = () => {
               value={noteToEdit.deadlineDate}
             />
           )}
-
 
           <View
             style={{
