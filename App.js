@@ -31,6 +31,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import uuid from "react-native-uuid";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
+import { Picker } from "@react-native-picker/picker";
 
 const theme = createTheme({
   lightColors: {
@@ -93,6 +94,7 @@ const App = () => {
     id: 0,
     content: "",
     title: "",
+    priority: "",
     dateCreated: new Date(),
     deadlineDate: new Date(),
   });
@@ -132,7 +134,7 @@ const App = () => {
   //  retrieve notes from local storage
   useEffect(() => {
     const retrieveNotes = async () => {
-      let notes = await getNotes("notes");
+      const notes = await getNotes("notes");
       setNotes(notes);
       setFilteredNotes(notes);
     };
@@ -164,6 +166,7 @@ const App = () => {
       title: "",
       dateCreated: new Date(),
       deadlineDate: new Date(),
+      priority: "green",
     });
     setVisibleAddNote(!visibleAddNote);
   };
@@ -187,6 +190,7 @@ const App = () => {
       title: noteToEdit.title,
       dateCreated: new Date(),
       deadlineDate: noteToEdit.deadlineDate,
+      priority: noteToEdit.priority,
       notificationID: identifier,
     };
     setNotes([...notes, newNote]);
@@ -211,27 +215,37 @@ const App = () => {
   };
 
   const toggleEditOverlay = (note) => {
+    console.log("testentry");
+    console.log(note);
     if (visibleEditNote) {
+      console.log("test");
       setNoteToEdit({
         id: note.id,
         content: "",
         title: "",
         dateCreated: new Date(),
+        priority: "green",
         deadlineDate: new Date(),
       });
     } else {
+      console.log("test1");
       setNoteToEdit({ ...note });
+      console.log("test2");
     }
+    console.log(visibleEditNote);
     setVisibleEditNote(!visibleEditNote);
+    console.log("test3");
   };
   const editNote = async () => {
+    console.log(notes);
+    console.log(noteToEdit);
     const updatedNotes = notes.map((note) =>
       note.id === noteToEdit.id ? noteToEdit : note
     );
     setFilteredNotes([...updatedNotes]);
     setNotes([...updatedNotes]);
     await saveNotes("notes", updatedNotes);
-    toggleEditOverlay();
+    toggleEditOverlay(noteToEdit);
   };
   const handleDateChange = (_, selectedDate) => {
     const currentDate = selectedDate || noteToEdit.deadlineDate;
@@ -267,23 +281,23 @@ const App = () => {
       });
     }
 
-    if (Device.isDevice) {
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== "granted") {
-        alert("Failed to get push token for push notification!");
-        return;
-      }
-      token = (await Notifications.getExpoPushTokenAsync()).data;
-      console.log(token);
-    } else {
-      alert("Must use physical device for Push Notifications");
+    //if (Device.isDevice) {
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
     }
+    if (finalStatus !== "granted") {
+      alert("Failed to get push token for push notification!");
+      return;
+    }
+    token = (await Notifications.getExpoPushTokenAsync()).data;
+    console.log(token);
+    /*} else {
+      alert("Must use physical device for Push Notifications");
+    }*/
 
     return token;
   }
@@ -411,6 +425,17 @@ const App = () => {
                     handleInputChange("deadlineDate", value)
                   }
                 />
+                <Picker
+                  selectedValue={noteToEdit.priority}
+                  style={{ height: 50, width: 150 }}
+                  onValueChange={(itemValue, itemIndex) =>
+                    handleInputChange("priority", itemValue)
+                  }
+                >
+                  <Picker.Item label="low" value="low" />
+                  <Picker.Item label="mid" value="mid" />
+                  <Picker.Item label="high" value="high" />
+                </Picker>
                 {!datePickerHidden && (
                   <DateTimePicker
                     locale={locale}
@@ -443,7 +468,15 @@ const App = () => {
                   <Button title="Confirm" onPress={() => editNote(note.id)} />
                 </View>
               </Overlay>
-              <Card key={note.id} containerStyle={{ width: "90%", margin: 10 }}>
+              <Card
+                key={note.id}
+                containerStyle={{
+                  width: "90%",
+                  margin: 10,
+                  borderColor: note.priority,
+                }}
+                style={{ borderColor: "red" }}
+              >
                 <View
                   style={{
                     flexDirection: "row",
@@ -503,7 +536,7 @@ const App = () => {
           justifyContent: "center",
           alignItems: "center",
           marginTop: 10,
-          backgroundColor: "#fff",
+
           right: "10%",
           bottom: 120,
         }}
@@ -553,6 +586,17 @@ const App = () => {
             }
             onChangeText={(value) => handleInputChange("deadlineDate", value)}
           />
+          <Picker
+            selectedValue={noteToEdit.priority}
+            style={{ height: 50, width: 150 }}
+            onValueChange={(itemValue, itemIndex) =>
+              handleInputChange("priority", itemValue)
+            }
+          >
+            <Picker.Item label="low" value="green" />
+            <Picker.Item label="mid" value="orange" />
+            <Picker.Item label="high" value="red" />
+          </Picker>
           {!datePickerHidden && (
             <DateTimePicker
               locale={locale}
@@ -571,6 +615,7 @@ const App = () => {
               value={noteToEdit.deadlineDate}
             />
           )}
+
           <View
             style={{
               flexDirection: "row",
@@ -593,7 +638,7 @@ const App = () => {
           alignItems: "center",
           justifyContent: "center",
           right: 170,
-          bottom: 50,
+          bottom: 20,
         }}
         onPress={toggleAddNoteOverlay}
       />
