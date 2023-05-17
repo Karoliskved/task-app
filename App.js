@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  StyleSheet,
   Platform,
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Animated,
   Dimensions,
   NativeModules,
 } from "react-native";
@@ -84,8 +82,6 @@ const App = () => {
   const [notes, setNotes] = useState([]);
   const [filteredNotes, setFilteredNotes] = useState([...notes]);
   const [visibleAddNote, setVisibleAddNote] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const [slideAnim] = useState(new Animated.Value(400));
   const { width, height } = Dimensions.get("window");
   const [noteToEdit, setNoteToEdit] = useState({
     id: 0,
@@ -144,8 +140,8 @@ const App = () => {
           ["deadlineDate"]: new Date(element.deadlineDate),
         });
       });
-      setNotes(notes);
-      setFilteredNotes(notes);
+      setNotes(modifiedNotes);
+      setFilteredNotes(modifiedNotes);
     };
     retrieveNotes();
     // Get User locale
@@ -245,12 +241,29 @@ const App = () => {
       });
     } else {
       console.log("test1");
-      setNoteToEdit({ ...note, ["deadlineDate"]: new Date(note.deadlineDate) });
+      setNoteToEdit({ ...note, ["deadlineDate"]: note.deadlineDate });
       console.log("test2");
     }
     console.log(visibleEditNote);
     setVisibleEditNote(!visibleEditNote);
     console.log("test3");
+  };
+  const toggleMenuOverlay = (note) => {
+    if (visibleEditNote) {
+      setNoteToEdit({
+        id: note.id,
+        content: "",
+        title: "",
+        category: "Personal",
+        dateCreated: new Date(),
+        priority: "Low",
+        deadlineDate: new Date(),
+      });
+    } else {
+      setNoteToEdit({ ...note, ["deadlineDate"]:note.deadlineDate });
+    }
+    setShowMenuOverlay(!showMenuOverlay);
+
   };
   const editNote = async () => {
     console.log(notes);
@@ -323,9 +336,6 @@ const App = () => {
 
   const toggleFilter = () => {
     setShowFilterOverlay(showFilterOverlay => !showFilterOverlay);
-  };
-  const toggleMenuOverlay = () => {
-    setShowMenuOverlay(!showMenuOverlay);
   };
 
   return (
@@ -556,7 +566,7 @@ const App = () => {
                   }}
                 >
                   <Card.Title>{note.title}</Card.Title>
-                  <TouchableOpacity onPress={toggleMenuOverlay}>
+                  <TouchableOpacity onPress={()=>toggleMenuOverlay(note)}>
                     <View
                       style={{
                         display: "flex",
@@ -571,14 +581,14 @@ const App = () => {
                         type="font-awesome"
                         size={15}
                         raised
-                        onPress={toggleMenuOverlay}
+                        onPress={()=>toggleMenuOverlay(note)}
                       />
                     </View>
                   </TouchableOpacity>
                 </View>
                 <Overlay
                   isVisible={showMenuOverlay}
-                  onBackdropPress={toggleMenuOverlay}
+                  onBackdropPress={()=>toggleMenuOverlay(note)}
                 >
                   <View
                     style={{
@@ -603,7 +613,7 @@ const App = () => {
                         name="close"
                         raised
                         size={20}
-                        onPress={toggleMenuOverlay}
+                        onPress={()=>toggleMenuOverlay(note)}
                         type="font-awesome"
                       />
                     </View>
@@ -623,26 +633,26 @@ const App = () => {
                           position: "relative",
                         }}
                       >
-                        <Card.Title>Title: {note.title}</Card.Title>
+                        <Card.Title>Title: {noteToEdit.title}</Card.Title>
                       </View>
                       <Card.Divider />
-                      <Text>Content: {note.content}</Text>
+                      <Text>Content: {noteToEdit.content}</Text>
                       <Card.Divider />
-                      <Text>Priority: {note.priority}</Text>
+                      <Text>Priority: {noteToEdit.priority}</Text>
                       <Card.Divider />
 
-                      <Text>Category: {note.category}</Text>
+                      <Text>Category: {noteToEdit.category}</Text>
                       <Card.Divider />
 
                       <Text>
                         Date Created:{" "}
-                        {new Date(note.dateCreated).toLocaleString(locale)}
+                        {new Date(noteToEdit.dateCreated).toLocaleString(locale)}
                       </Text>
                       <Card.Divider />
 
                       <Text>
                         Deadline Date:{" "}
-                        {new Date(note.deadlineDate).toLocaleString(locale)}
+                        {new Date(noteToEdit.deadlineDate).toLocaleString(locale)}
                       </Text>
                     </Card>
                   </View>
@@ -908,45 +918,5 @@ const App = () => {
     </ThemeProvider>
   );
 };
-const styles = StyleSheet.create({
-  addButton: {
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 70,
-    position: "absolute",
-    bottom: 0,
-    right: 10,
-    height: 70,
-    backgroundColor: "#fff",
-    borderRadius: 100,
-  },
-  container: {
-    width: "20%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "white",
-    padding: 10,
-  },
-  menuContainer: {
-    position: "absolute",
-    left: -300,
-    top: 0,
-    width: 250,
-    backgroundColor: "white",
-    padding: 10,
-  },
-  closeButton: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "black",
-    marginBottom: 10,
-  },
-  menuItem: {
-    fontSize: 16,
-    padding: 10,
-  },
-});
+
 export default App;
