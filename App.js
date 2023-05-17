@@ -5,13 +5,10 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   Animated,
   Dimensions,
   NativeModules,
-  AppState,
-  PermissionsAndroid,
 } from "react-native";
 import {
   Button,
@@ -89,14 +86,19 @@ const App = () => {
   const [visibleAddNote, setVisibleAddNote] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [slideAnim] = useState(new Animated.Value(400));
-  const { width } = Dimensions.get("window");
+  const { width, height } = Dimensions.get("window");
   const [noteToEdit, setNoteToEdit] = useState({
     id: 0,
     content: "",
     title: "",
-    priority: "",
+    priority: "Low",
+    category: "Personal",
     dateCreated: new Date(),
     deadlineDate: new Date(),
+  });
+  const [filter, setFilter] = useState({
+    category: "Personal",
+    priority: "Low",
   });
   const [searchValue, setSearchValue] = useState("");
   const [visibleEditNote, setVisibleEditNote] = useState(false);
@@ -135,6 +137,13 @@ const App = () => {
   useEffect(() => {
     const retrieveNotes = async () => {
       const notes = await getNotes("notes");
+      const modifiedNotes = [];
+      notes.forEach((element) => {
+        modifiedNotes.push({
+          ...element,
+          ["deadlineDate"]: new Date(element.deadlineDate),
+        });
+      });
       setNotes(notes);
       setFilteredNotes(notes);
     };
@@ -143,22 +152,26 @@ const App = () => {
     const locale = NativeModules.I18nManager.localeIdentifier;
     setLocale(locale === undefined ? "en-US" : locale.replace("_", "-"));
   }, []);
-  const toggleMenu = () => {
-    setShowMenu(!showMenu);
-    Animated.timing(slideAnim, {
-      toValue: showMenu ? width : 250,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  };
-  const filterNotes = () => {
-    if (searchValue === "") return;
-    const filteredNotes = notes.filter((note) =>
-      note.title.toLowerCase().includes(searchValue.toLowerCase())
+  
+  const searchNotes = () => {
+    if (searchValue === "") {
+      setFilteredNotes(notes);
+      return;
+    }
+    const filteredNotes = notes.filter(
+      (note) =>
+        note.title.toLowerCase().includes(searchValue.toLowerCase()) ||
+        note.content.toLowerCase().includes(searchValue.toLowerCase())
     );
     setFilteredNotes(filteredNotes);
   };
-
+  const filterNotes = () => {
+    const filteredNotes = notes.filter(
+      (note) => note.category === filter.category && note.priority === filter.priority
+    );
+    setFilteredNotes(filteredNotes);
+    toggleFilter();
+  };
   const toggleAddNoteOverlay = () => {
     setNoteToEdit({
       id: 0,
@@ -166,7 +179,8 @@ const App = () => {
       title: "",
       dateCreated: new Date(),
       deadlineDate: new Date(),
-      priority: "green",
+      priority: "Low",
+      category: "Personal",
     });
     setVisibleAddNote(!visibleAddNote);
   };
@@ -189,6 +203,7 @@ const App = () => {
       content: noteToEdit.content,
       title: noteToEdit.title,
       dateCreated: new Date(),
+      category: noteToEdit.category,
       deadlineDate: noteToEdit.deadlineDate,
       priority: noteToEdit.priority,
       notificationID: identifier,
@@ -223,13 +238,14 @@ const App = () => {
         id: note.id,
         content: "",
         title: "",
+        category: "Personal",
         dateCreated: new Date(),
-        priority: "green",
+        priority: "Low",
         deadlineDate: new Date(),
       });
     } else {
       console.log("test1");
-      setNoteToEdit({ ...note });
+      setNoteToEdit({ ...note, ["deadlineDate"]: new Date(note.deadlineDate) });
       console.log("test2");
     }
     console.log(visibleEditNote);
@@ -249,12 +265,12 @@ const App = () => {
   };
   const handleDateChange = (_, selectedDate) => {
     const currentDate = selectedDate || noteToEdit.deadlineDate;
-    setDatePickerHidden(!datePickerHidden);
+    setDatePickerHidden(true);
     setNoteToEdit({ ...noteToEdit, ["deadlineDate"]: currentDate });
   };
   const handleTimeChange = (_, selectedDate) => {
     const currentTime = selectedDate || noteToEdit.deadlineDate;
-    setTimePickerHidden(!timePickerHidden);
+    setTimePickerHidden(true);
     setNoteToEdit({ ...noteToEdit, ["deadlineDate"]: currentTime });
   };
   //notifications
@@ -301,6 +317,16 @@ const App = () => {
 
     return token;
   }
+  const [showMenuOverlay, setShowMenuOverlay] = useState(false);
+  const [showFilterOverlay, setShowFilterOverlay] =
+    useState(false);
+
+  const toggleFilter = () => {
+    setShowFilterOverlay(showFilterOverlay => !showFilterOverlay);
+  };
+  const toggleMenuOverlay = () => {
+    setShowMenuOverlay(!showMenuOverlay);
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -321,47 +347,57 @@ const App = () => {
             justifyContent: "center",
           }}
         >
-          <View style={{ width: "80%", padding: 10 }}>
-            <SearchBar
-              platform="android"
-              containerStyle={{ flex: 1 }}
-              inputContainerStyle={{}}
-              inputStyle={{}}
-              leftIconContainerStyle={{}}
-              rightIconContainerStyle={{}}
-              loadingProps={{}}
-              onChangeText={(newVal) => setSearchValue(newVal)}
-              onClear={() => {
-                setSearchValue("");
-              }}
-              placeholder="Search..."
-              placeholderTextColor="#888"
-              round
-              onCancel={() => setSearchValue("")}
-              cancelButtonTitle="Cancel"
-              cancelButtonProps={{}}
-              value={searchValue}
-              onSubmitEditing={filterNotes}
-              clearIcon={searchValue ? { color: "#888" } : null}
-            />
-          </View>
-          <View style={styles.container}>
-            <TouchableOpacity onPress={toggleMenu}>
-              <Icon name="menu" raised size={25} color="black" />
-            </TouchableOpacity>
-            <Animated.View
-              style={[
-                styles.menuContainer,
-                { transform: [{ translateX: slideAnim }] },
-              ]}
+          <View
+            style={{
+              width: "100%",
+              flexDirection: "row",
+              alignContent: "center",
+              justifyContent: "center",
+              paddingTop: 25,
+              paddingBottom: 15,
+            }}
+          >
+            <View style={{ width: "70%" }}>
+              <SearchBar
+                platform="android"
+                containerStyle={{ flex: 1 }}
+                inputContainerStyle={{}}
+                inputStyle={{}}
+                leftIconContainerStyle={{}}
+                rightIconContainerStyle={{}}
+                loadingProps={{}}
+                onChangeText={(newVal) => setSearchValue(newVal)}
+                onClear={() => {
+                  setFilteredNotes(notes);
+                  setSearchValue("");
+                }}
+                placeholder="Search..."
+                placeholderTextColor="#888"
+                round
+                onCancel={() => {
+                  setFilteredNotes(notes);
+                  setSearchValue("");
+                }}
+                cancelButtonTitle="Cancel"
+                cancelButtonProps={{}}
+                value={searchValue}
+                onSubmitEditing={searchNotes}
+                clearIcon={searchValue ? { color: "#888" } : null}
+              />
+            </View>
+            <View
+              style={{ width: "30%", display: "flex", flexDirection: "row" }}
             >
-              <TouchableOpacity onPress={toggleMenu}>
-                <Text style={styles.closeButton}>X</Text>
-              </TouchableOpacity>
-              <Text style={styles.menuItem}>Category 1</Text>
-              <Text style={styles.menuItem}>Category 2</Text>
-              <Text style={styles.menuItem}>Category 3</Text>
-            </Animated.View>
+              <Icon name="pie-chart" raised size={20} type="font-awesome" />
+
+              <Icon
+                name="filter"
+                raised
+                size={20}
+                onPress={toggleFilter}
+                type="font-awesome"
+              />
+            </View>
           </View>
         </View>
         <ScrollView
@@ -400,7 +436,11 @@ const App = () => {
                   rightIcon={
                     <Icon
                       name="calendar"
-                      onPress={() => setDatePickerHidden(!datePickerHidden)}
+                      onPress={() =>
+                        setDatePickerHidden(
+                          (datePickerHidden) => !datePickerHidden
+                        )
+                      }
                       type="font-awesome"
                     />
                   }
@@ -417,7 +457,11 @@ const App = () => {
                   rightIcon={
                     <Icon
                       name="clock-o"
-                      onPress={() => setTimePickerHidden(!timePickerHidden)}
+                      onPress={() =>
+                        setTimePickerHidden(
+                          (timePickerHidden) => !timePickerHidden
+                        )
+                      }
                       type="font-awesome"
                     />
                   }
@@ -425,23 +469,46 @@ const App = () => {
                     handleInputChange("deadlineDate", value)
                   }
                 />
-                <Picker
-                  selectedValue={noteToEdit.priority}
-                  style={{ height: 50, width: 150 }}
-                  onValueChange={(itemValue, itemIndex) =>
-                    handleInputChange("priority", itemValue)
-                  }
-                >
-                  <Picker.Item label="low" value="low" />
-                  <Picker.Item label="mid" value="mid" />
-                  <Picker.Item label="high" value="high" />
-                </Picker>
+                <View style={{ paddingBottom: 25 }}>
+                  <Input
+                    label="Category"
+                    inputContainerStyle={{ display: "none" }}
+                  />
+
+                  <Picker
+                    selectedValue={noteToEdit.category}
+                    style={{ height: 50, width: 150 }}
+                    onValueChange={(value) =>
+                      handleInputChange("category", value)
+                    }
+                  >
+                    <Picker.Item label="Personal" value="Personal" />
+                    <Picker.Item label="Work" value="Work" />
+                  </Picker>
+                </View>
+                <View style={{ paddingBottom: 25 }}>
+                  <Input
+                    label="Priority"
+                    inputContainerStyle={{ display: "none" }}
+                  />
+                  <Picker
+                    selectedValue={noteToEdit.priority}
+                    style={{ height: 50, width: 150 }}
+                    onValueChange={(itemValue, _) =>
+                      handleInputChange("priority", itemValue)
+                    }
+                  >
+                    <Picker.Item label="Low" value="Low" />
+                    <Picker.Item label="Mid" value="Mid" />
+                    <Picker.Item label="High" value="High" />
+                  </Picker>
+                </View>
                 {!datePickerHidden && (
                   <DateTimePicker
                     locale={locale}
                     is24Hour={true}
                     onChange={handleDateChange}
-                    value={note.deadlineDate}
+                    value={noteToEdit.deadlineDate}
                   />
                 )}
                 {!timePickerHidden && (
@@ -451,7 +518,7 @@ const App = () => {
                     minuteInterval={1}
                     mode="time"
                     onChange={handleTimeChange}
-                    value={note.deadlineDate}
+                    value={noteToEdit.deadlineDate}
                   />
                 )}
                 <View
@@ -473,9 +540,14 @@ const App = () => {
                 containerStyle={{
                   width: "90%",
                   margin: 10,
-                  borderColor: note.priority,
+                  borderColor:
+                    note.priority === "Low"
+                      ? "green"
+                      : note.priority === "Medium"
+                      ? "orange"
+                      : "red",
+                  borderWidth: 2,
                 }}
-                style={{ borderColor: "red" }}
               >
                 <View
                   style={{
@@ -484,7 +556,97 @@ const App = () => {
                   }}
                 >
                   <Card.Title>{note.title}</Card.Title>
+                  <TouchableOpacity onPress={toggleMenuOverlay}>
+                    <View
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Text>Details</Text>
+                      <Icon
+                        name="angle-right"
+                        type="font-awesome"
+                        size={15}
+                        raised
+                        onPress={toggleMenuOverlay}
+                      />
+                    </View>
+                  </TouchableOpacity>
                 </View>
+                <Overlay
+                  isVisible={showMenuOverlay}
+                  onBackdropPress={toggleMenuOverlay}
+                >
+                  <View
+                    style={{
+                      width: width * 0.85,
+                      height: height * 0.5,
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      padding: 0,
+                      margin: 0,
+                    }}
+                  >
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        height: 100,
+                      }}
+                    >
+                      <Icon
+                        name="close"
+                        raised
+                        size={20}
+                        onPress={toggleMenuOverlay}
+                        type="font-awesome"
+                      />
+                    </View>
+                    <Card
+                      containerStyle={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <View
+                        style={{
+                          display: "flex",
+                          flexDirection: "row",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          position: "relative",
+                        }}
+                      >
+                        <Card.Title>Title: {note.title}</Card.Title>
+                      </View>
+                      <Card.Divider />
+                      <Text>Content: {note.content}</Text>
+                      <Card.Divider />
+                      <Text>Priority: {note.priority}</Text>
+                      <Card.Divider />
+
+                      <Text>Category: {note.category}</Text>
+                      <Card.Divider />
+
+                      <Text>
+                        Date Created:{" "}
+                        {new Date(note.dateCreated).toLocaleString(locale)}
+                      </Text>
+                      <Card.Divider />
+
+                      <Text>
+                        Deadline Date:{" "}
+                        {new Date(note.deadlineDate).toLocaleString(locale)}
+                      </Text>
+                    </Card>
+                  </View>
+                </Overlay>
                 <Card.Divider />
                 <View
                   style={{
@@ -511,21 +673,107 @@ const App = () => {
                       name="pencil"
                       type="font-awesome"
                       size={15}
-                      reverse
+                      raised
                       onPress={() => toggleEditOverlay(note)}
                     />
                     <Icon
                       name="trash"
                       type="font-awesome"
                       size={15}
-                      reverse
+                      raised
                       onPress={() => deleteNote(note.id)}
                     />
                   </View>
                 </View>
               </Card>
+              
             </React.Fragment>
           ))}
+          <Overlay
+                isVisible={showFilterOverlay}
+                onBackdropPress={toggleFilter}
+              >
+                <View
+                  style={{
+                    width: width * 0.85,
+                    height: height * 0.5,
+                    display: "flex",
+                    position: "relative",
+                    padding: 0,
+                    margin: 0,
+                  }}
+                >
+                  
+                  <View style={{ paddingTop: 50 }}>
+                    <Input
+                      label="Filter by category"
+                      inputContainerStyle={{ display: "none" }}
+                    />
+
+                    <Picker
+                      style={{ height: 50, width: 150 }}
+                      selectedValue={filter.category}
+                      onValueChange={(value) =>
+                        setFilter({ ...filter, category: value })
+                      }
+                    >
+                      <Picker.Item label="Personal" value="Personal" />
+                      <Picker.Item label="Work" value="Work" />
+                    </Picker>
+                  </View>
+                  <View style={{ paddingTop: 25 }}>
+                    <Input
+                      label="Filter by priority"
+                      inputContainerStyle={{ display: "none" }}
+                    />
+                    <Picker
+                      selectedValue={filter.priority}
+                      style={{ height: 50, width: 150 }}
+                      onValueChange={(value) =>
+                        setFilter({ ...filter, priority: value })
+                      }
+                    >
+                      <Picker.Item label="Low" value="Low" />
+                      <Picker.Item label="Mid" value="Mid" />
+                      <Picker.Item label="High" value="High" />
+                    </Picker>
+                  </View>
+                  <View
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      position: "absolute",
+                      bottom: 0,
+                      padding: 20,
+                    }}
+                  >
+                    <Button
+                      title="Cancel"
+                      onPress={()=>{
+                        toggleFilter()
+                        setFilteredNotes(notes)
+                      }}
+                    />
+                  </View>
+                  <View
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      position: "absolute",
+                      bottom: 0,
+                      right: 0,
+                      padding: 20,
+                    }}
+                  >
+                    <Button
+                      title="Filter "
+                      onPress={() => filterNotes()}
+                    />
+                  </View>
+                </View>
+              </Overlay>
         </ScrollView>
       </View>
       <View
@@ -586,17 +834,32 @@ const App = () => {
             }
             onChangeText={(value) => handleInputChange("deadlineDate", value)}
           />
-          <Picker
-            selectedValue={noteToEdit.priority}
-            style={{ height: 50, width: 150 }}
-            onValueChange={(itemValue, itemIndex) =>
-              handleInputChange("priority", itemValue)
-            }
-          >
-            <Picker.Item label="low" value="green" />
-            <Picker.Item label="mid" value="orange" />
-            <Picker.Item label="high" value="red" />
-          </Picker>
+          <View style={{ paddingBottom: 25 }}>
+            <Input label="Category" inputContainerStyle={{ display: "none" }} />
+
+            <Picker
+              style={{ height: 50, width: 150 }}
+              selectedValue={noteToEdit.category}
+              onValueChange={(value) => handleInputChange("category", value)}
+            >
+              <Picker.Item label="Personal" value="Personal" />
+              <Picker.Item label="Work" value="Work" />
+            </Picker>
+          </View>
+          <View style={{ paddingBottom: 25 }}>
+            <Input label="Priority" inputContainerStyle={{ display: "none" }} />
+            <Picker
+              selectedValue={noteToEdit.priority}
+              style={{ height: 50, width: 150 }}
+              onValueChange={(itemValue, _) =>
+                handleInputChange("priority", itemValue)
+              }
+            >
+              <Picker.Item label="Low" value="Low" />
+              <Picker.Item label="Mid" value="Mid" />
+              <Picker.Item label="High" value="High" />
+            </Picker>
+          </View>
           {!datePickerHidden && (
             <DateTimePicker
               locale={locale}
