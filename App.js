@@ -20,6 +20,7 @@ import {
   FAB,
   Overlay,
   Input,
+  CheckBox,
 } from "@rneui/themed";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -28,7 +29,7 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Picker } from "@react-native-picker/picker";
 import { LinearGradient } from "expo-linear-gradient";
-
+import Statistics from "./Statistics";
 const theme = createTheme({
   lightColors: {
     ...Platform.select({
@@ -88,16 +89,19 @@ const App = () => {
     id: 0,
     content: "",
     title: "",
+    completed: false,
 
     priority: "Low",
     category: "Personal",
 
     dateCreated: new Date(),
     deadlineDate: new Date(),
+    dateCompleted: null,
   });
   const [filter, setFilter] = useState({
     category: "Personal",
     priority: "Low",
+    completed: false,
   });
   const [searchValue, setSearchValue] = useState("");
   const [visibleEditNote, setVisibleEditNote] = useState(false);
@@ -108,6 +112,13 @@ const App = () => {
   const [notification, setNotification] = useState(false);
   const notificationListener = useRef();
   const responseListener = useRef();
+  const [showMenuOverlay, setShowMenuOverlay] = useState(false);
+  const [showFilterOverlay, setShowFilterOverlay] = useState(false);
+  const [showStatisticsOverlay, setShowStatisticsOverlay] = useState(false);
+
+  const toggleFilter = () => {
+    setShowFilterOverlay((showFilterOverlay) => !showFilterOverlay);
+  };
   // notification set up
   useEffect(() => {
     registerForPushNotificationsAsync().then((token) =>
@@ -141,6 +152,11 @@ const App = () => {
         modifiedNotes.push({
           ...element,
           ["deadlineDate"]: new Date(element.deadlineDate),
+          ["dateCreated"]: new Date(element.dateCreated),
+          ["dateCompleted"]:
+            element.dateCompleted === null
+              ? null
+              : new Date(element.dateCompleted),
         });
       });
       setNotes(modifiedNotes);
@@ -167,11 +183,14 @@ const App = () => {
   const filterNotes = () => {
     const filteredNotes = notes.filter(
       (note) =>
+
         (note.category === filter.category &&
-          note.priority === filter.priority) ||
+          note.priority === filter.priority &&
+        note.completed === filter.completed) ||
         (filter.category === "All" && note.priority === filter.priority) ||
         (filter.priority === "All" && note.category === filter.category) ||
         (filter.category === "All" && filter.priority === "All")
+
     );
     setFilteredNotes(filteredNotes);
     toggleFilter();
@@ -181,8 +200,10 @@ const App = () => {
       id: 0,
       content: "",
       title: "",
+      completed: false,
       dateCreated: new Date(),
       deadlineDate: new Date(),
+      dateCompleted: null,
       priority: "Low",
       category: "Personal",
     });
@@ -277,8 +298,9 @@ const App = () => {
       id: uuid.v4(),
       content: noteToEdit.content,
       title: noteToEdit.title,
+      completed: false,
       dateCreated: new Date(),
-
+      dateCompleted: null,
       category: noteToEdit.category,
       deadlineDate: noteToEdit.deadlineDate,
 
@@ -319,9 +341,10 @@ const App = () => {
         id: note.id,
         content: "",
         title: "",
+        completed: false,
         category: "Personal",
         dateCreated: new Date(),
-
+        dateCompleted: null,
         priority: "Low",
 
         deadlineDate: new Date(),
@@ -342,9 +365,11 @@ const App = () => {
         id: note.id,
         content: "",
         title: "",
+        completed: false,
         category: "Personal",
         dateCreated: new Date(),
         priority: "Low",
+        dateCompleted: null,
         deadlineDate: new Date(),
       });
     } else {
@@ -352,7 +377,12 @@ const App = () => {
     }
     setShowMenuOverlay(!showMenuOverlay);
   };
-  const editNote = async () => {
+
+  const editNote = async (note) => {
+    if (note !== undefined) {
+      noteToEdit = { ...note };
+    }
+
     console.log(notes);
     console.log(noteToEdit);
     //delete pre-edit notifications
@@ -371,6 +401,7 @@ const App = () => {
     const newNotificationsIDS = addNotifications();
     console.log(newNotificationsIDS);
     setNoteToEdit({ ...noteToEdit, ["notificatonIDs"]: newNotificationsIDS });
+
     const updatedNotes = notes.map((note) =>
       note.id === noteToEdit.id ? noteToEdit : note
     );
@@ -423,12 +454,6 @@ const App = () => {
 
     return token;
   }
-  const [showMenuOverlay, setShowMenuOverlay] = useState(false);
-  const [showFilterOverlay, setShowFilterOverlay] = useState(false);
-
-  const toggleFilter = () => {
-    setShowFilterOverlay((showFilterOverlay) => !showFilterOverlay);
-  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -459,7 +484,7 @@ const App = () => {
               paddingBottom: 15,
             }}
           >
-            <View style={{ width: "70%" }}>
+            <View style={{ width: "65%" }}>
               <SearchBar
                 platform="android"
                 containerStyle={{ flex: 1 }}
@@ -488,14 +513,24 @@ const App = () => {
               />
             </View>
             <View
-              style={{ width: "30%", display: "flex", flexDirection: "row" }}
+              style={{ width: "35%", display: "flex", flexDirection: "row" }}
             >
-              <Icon name="pie-chart" raised size={20} type="font-awesome" />
+              <Icon
+                name="pie-chart"
+                raised
+                size={22}
+                type="font-awesome"
+                onPress={() =>
+                  setShowStatisticsOverlay(
+                    (showStatisticsOverlay) => !showStatisticsOverlay
+                  )
+                }
+              />
 
               <Icon
                 name="filter"
                 raised
-                size={20}
+                size={22}
                 onPress={toggleFilter}
                 type="font-awesome"
               />
@@ -602,7 +637,7 @@ const App = () => {
                     }
                   >
                     <Picker.Item label="Low" value="Low" />
-                    <Picker.Item label="Mid" value="Mid" />
+                    <Picker.Item label="Medium" value="Medium" />
                     <Picker.Item label="High" value="High" />
                   </Picker>
                 </View>
@@ -676,32 +711,65 @@ const App = () => {
                     borderRadius: 10,
                   }}
                 />
+
                 <View
                   style={{
-                    padding: 20,
+                    padding: 15,
                   }}
                 >
-                  <Card.Title>{note.title}</Card.Title>
-
-                  <TouchableOpacity onPress={() => toggleMenuOverlay(note)}>
+                  <View
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
                     <View
                       style={{
+                        width: "60%",
+                        flexDirection: "row",
+                        paddingLeft: 10,
+                      }}
+                    >
+                      <Card.Title>{note.title}</Card.Title>
+                    </View>
+                    <View
+                      style={{
+                        width: "40%",
                         display: "flex",
                         flexDirection: "row",
                         justifyContent: "center",
                         alignItems: "center",
+                        paddingLeft: 10,
                       }}
                     >
-                      <Text>Details</Text>
-                      <Icon
-                        name="angle-right"
-                        type="font-awesome"
-                        size={15}
-                        raised
-                        onPress={() => toggleMenuOverlay(note)}
+                      <Text style={{ fontWeight: "bold" }}>Completed</Text>
+                      <CheckBox
+                        containerStyle={{ backgroundColor: "transparent" }}
+                        right
+                        size={28}
+                        checked={note.completed}
+                        onPress={async () => {
+                          const updatedNotes = notes.map((n) => {
+                            if (n.id === note.id) {
+                              return {
+                                ...n,
+                                completed: !n.completed,
+                                dateCompleted:
+                                  n.dateCompleted === null ? new Date() : null,
+                              };
+                            }
+                            return n;
+                          });
+
+                          setNotes(updatedNotes);
+                          setFilteredNotes(updatedNotes);
+                          await saveNotes("notes",updatedNotes)
+                        }}
                       />
                     </View>
-                  </TouchableOpacity>
+                  </View>
                   <Overlay
                     isVisible={showMenuOverlay}
                     onBackdropPress={() => toggleMenuOverlay(note)}
@@ -774,6 +842,11 @@ const App = () => {
                             locale
                           )}
                         </Text>
+                        <Card.Divider />
+
+                        <Text>
+                          Completed: {noteToEdit.completed ? "Yes" : "No"}
+                        </Text>
                       </Card>
                     </View>
                   </Overlay>
@@ -788,9 +861,39 @@ const App = () => {
                       style={{
                         flexDirection: "row",
                         justifyContent: "space-between",
+                        alignItems: "center",
                       }}
                     >
-                      <Card.Title>{note.title}</Card.Title>
+                      <View
+                        style={{
+                          width: "60%",
+                          flexDirection: "row",
+                        }}
+                      >
+                        <Card.Title>{note.content}</Card.Title>
+                      </View>
+                      <TouchableOpacity
+                        style={{ width: "60%", paddingRight: 20 }}
+                        onPress={() => toggleMenuOverlay(note)}
+                      >
+                        <View
+                          style={{
+                            display: "flex",
+                            flexDirection: "row",
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text style={{ fontWeight: "bold" }}>Details</Text>
+                          <Icon
+                            name="angle-right"
+                            type="font-awesome"
+                            size={18}
+                            raised
+                            onPress={() => toggleMenuOverlay(note)}
+                          />
+                        </View>
+                      </TouchableOpacity>
                     </View>
                     <Card.Divider />
                     <View
@@ -798,22 +901,41 @@ const App = () => {
                         width: "100%",
                         flexDirection: "row",
                         alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      <Icon
-                        name="pencil"
-                        type="font-awesome"
-                        size={15}
-                        raised
-                        onPress={() => toggleEditOverlay(note)}
-                      />
-                      <Icon
-                        name="trash"
-                        type="font-awesome"
-                        size={15}
-                        raised
-                        onPress={() => deleteNote(note.id)}
-                      />
+                      <View
+                        style={{
+                          width: "50%",
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Icon
+                          name="pencil"
+                          type="font-awesome"
+                          size={18}
+                          raised
+                          onPress={() => toggleEditOverlay(note)}
+                        />
+                      </View>
+                      <View
+                        style={{
+                          width: "50%",
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Icon
+                          name="trash"
+                          type="font-awesome"
+                          size={18}
+                          raised
+                          onPress={() => deleteNote(note.id)}
+                        />
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -831,7 +953,7 @@ const App = () => {
                 margin: 0,
               }}
             >
-              <View style={{ paddingTop: 50 }}>
+              <View style={{ paddingTop: 10 }}>
                 <Input
                   label="Filter by category"
                   inputContainerStyle={{ display: "none" }}
@@ -849,7 +971,7 @@ const App = () => {
                   <Picker.Item label="All" value="All" />
                 </Picker>
               </View>
-              <View style={{ paddingTop: 25 }}>
+              <View style={{ paddingTop: 10 }}>
                 <Input
                   label="Filter by priority"
                   inputContainerStyle={{ display: "none" }}
@@ -862,9 +984,25 @@ const App = () => {
                   }
                 >
                   <Picker.Item label="Low" value="Low" />
-                  <Picker.Item label="Mid" value="Mid" />
+                  <Picker.Item label="Medium" value="Medium" />
                   <Picker.Item label="High" value="High" />
                   <Picker.Item label="All" value="All" />
+                </Picker>
+              </View>
+              <View style={{ paddingTop: 10 }}>
+                <Input
+                  label="Filter by completion"
+                  inputContainerStyle={{ display: "none" }}
+                />
+                <Picker
+                  selectedValue={filter.completed}
+                  style={{ height: 50, width: 150 }}
+                  onValueChange={(value) =>
+                    setFilter({ ...filter, completed: value })
+                  }
+                >
+                  <Picker.Item label="Yes" value={true} />
+                  <Picker.Item label="No" value={false} />
                 </Picker>
               </View>
               <View
@@ -874,7 +1012,7 @@ const App = () => {
                   justifyContent: "space-between",
                   position: "absolute",
                   bottom: 0,
-                  padding: 20,
+                  padding: 10,
                 }}
               >
                 <Button
@@ -893,11 +1031,41 @@ const App = () => {
                   position: "absolute",
                   bottom: 0,
                   right: 0,
-                  padding: 20,
+                  padding: 10,
                 }}
               >
                 <Button title="Filter " onPress={() => filterNotes()} />
               </View>
+            </View>
+          </Overlay>
+          <Overlay
+            isVisible={showStatisticsOverlay}
+            onBackdropPress={() =>
+              setShowStatisticsOverlay(
+                (showStatisticsOverlay) => !showStatisticsOverlay
+              )
+            }
+            fullScreen
+          >
+            <Statistics notes={notes} width={width}/>
+            <View
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: 20,
+              }}
+            >
+              <Button
+                containerStyle={{ width: "50%" }}
+                title="Back"
+                onPress={() => {
+                  setShowStatisticsOverlay(
+                    (showStatisticsOverlay) => !showStatisticsOverlay
+                  );
+                }}
+              />
             </View>
           </Overlay>
         </ScrollView>
@@ -978,12 +1146,12 @@ const App = () => {
             <Picker
               selectedValue={noteToEdit.priority}
               style={{ height: 50, width: 150 }}
-              onValueChange={(itemValue, _) =>
+              onValueChange={(itemValue) =>
                 handleInputChange("priority", itemValue)
               }
             >
               <Picker.Item label="Low" value="Low" />
-              <Picker.Item label="Mid" value="Mid" />
+              <Picker.Item label="Medium" value="Medium" />
               <Picker.Item label="High" value="High" />
             </Picker>
           </View>
