@@ -183,14 +183,12 @@ const App = () => {
   const filterNotes = () => {
     const filteredNotes = notes.filter(
       (note) =>
-
-        (note.category === filter.category &&
-          note.priority === filter.priority &&
-        note.completed === filter.completed) ||
-        (filter.category === "All" && note.priority === filter.priority) ||
-        (filter.priority === "All" && note.category === filter.category) ||
-        (filter.category === "All" && filter.priority === "All")
-
+        ((note.category === filter.category &&
+          note.priority === filter.priority) ||
+          (filter.category === "All" && note.priority === filter.priority) ||
+          (filter.priority === "All" && note.category === filter.category) ||
+          (filter.category === "All" && filter.priority === "All")) &&
+        (note.completed === filter.completed || filter.completed === "All")
     );
     setFilteredNotes(filteredNotes);
     toggleFilter();
@@ -209,29 +207,29 @@ const App = () => {
     });
     setVisibleAddNote(!visibleAddNote);
   };
-  const addNotifications = async () => {
-    let date = new Date(noteToEdit.deadlineDate);
+  const addNotifications = async (note) => {
+    let date = new Date(note.deadlineDate);
 
     //Add 10 seconds to the current date to test it.
 
     const notificationIDs = [];
-    console.log(noteToEdit.priority);
-    if (noteToEdit.priority == "Low") {
+    console.log(note.priority);
+    if (note.priority == "Low") {
       date.setSeconds(date.getSeconds() + 10);
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
-          title: noteToEdit.title + " is due now",
-          body: noteToEdit.content,
+          title: note.title + " is due now",
+          body: note.content,
         },
         trigger: { date: date },
       });
       notificationIDs.push(identifier);
-    } else if (noteToEdit.priority == "Mid") {
+    } else if (note.priority == "Medium") {
       date.setSeconds(date.getSeconds() + 10);
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
-          title: noteToEdit.title + " is due now",
-          body: noteToEdit.content,
+          title: note.title + " is due now",
+          body: note.content,
         },
         trigger: { date: date },
       });
@@ -242,19 +240,19 @@ const App = () => {
       const identifierHourBefore =
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: noteToEdit.title + " is due in an hour",
-            body: noteToEdit.content,
+            title: note.title + " is due in an hour",
+            body: note.content,
           },
           trigger: { date: date },
         });
       notificationIDs.push(identifierHourBefore);
-    } else if (noteToEdit.priority == "High") {
+    } else if (note.priority == "High") {
       date.setSeconds(date.getSeconds() + 10);
       console.log(date);
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
-          title: noteToEdit.title + " is in now",
-          body: noteToEdit.content,
+          title: note.title + " is in now",
+          body: note.content,
         },
         trigger: { date: date },
       });
@@ -266,8 +264,8 @@ const App = () => {
       const identifierHourBefore =
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: noteToEdit.title + " is due in an hour",
-            body: noteToEdit.content,
+            title: note.title + " is due in an hour",
+            body: note.content,
           },
           trigger: { date: date },
         });
@@ -277,8 +275,8 @@ const App = () => {
       console.log(date);
       const identifierDay = await Notifications.scheduleNotificationAsync({
         content: {
-          title: noteToEdit.title + " is due today",
-          body: noteToEdit.content,
+          title: note.title + " is due today",
+          body: note.content,
         },
         trigger: { date: date },
       });
@@ -292,7 +290,7 @@ const App = () => {
     setVisibleAddNote(!visibleAddNote);
     console.log(noteToEdit.deadlineDate);
     //add notification when the task is due
-    const notificationIDArray = await addNotifications();
+    const notificationIDArray = await addNotifications(noteToEdit);
     console.log(notificationIDArray);
     const newNote = {
       id: uuid.v4(),
@@ -379,9 +377,9 @@ const App = () => {
   };
 
   const editNote = async (note) => {
-    if (note !== undefined) {
+    /* if (note !== undefined) {
       noteToEdit = { ...note };
-    }
+    }*/
 
     console.log(notes);
     console.log(noteToEdit);
@@ -398,7 +396,7 @@ const App = () => {
       console.log(error);
     }
 
-    const newNotificationsIDS = addNotifications();
+    const newNotificationsIDS = addNotifications(noteToEdit);
     console.log(newNotificationsIDS);
     setNoteToEdit({ ...noteToEdit, ["notificatonIDs"]: newNotificationsIDS });
 
@@ -684,14 +682,14 @@ const App = () => {
                   borderColor:
                     note.priority === "Low"
                       ? "green"
-                      : note.priority === "Mid"
+                      : note.priority === "Medium"
                       ? "orange"
                       : "red",
                   borderWidth: 1,
                   backgroundColor:
                     note.priority === "Low"
                       ? "green"
-                      : note.priority === "Mid"
+                      : note.priority === "Medium"
                       ? "orange"
                       : "red",
                   flex: 1,
@@ -752,20 +750,41 @@ const App = () => {
                         checked={note.completed}
                         onPress={async () => {
                           const updatedNotes = notes.map((n) => {
+                            let newNotificationsIDS;
+                            if (n.id === note.id) {
+                              if (n.dateCompleted !== null) {
+                                newNotificationsIDS = addNotifications(note);
+                              } else {
+                                try {
+                                  note.notificationIDs.forEach(
+                                    async (element) => {
+                                      await Notifications.cancelScheduledNotificationAsync(
+                                        element
+                                      );
+                                    }
+                                  );
+                                } catch (error) {
+                                  console.log(error);
+                                }
+                                newNotificationsIDS = [];
+                              }
+                            }
                             if (n.id === note.id) {
                               return {
                                 ...n,
                                 completed: !n.completed,
                                 dateCompleted:
                                   n.dateCompleted === null ? new Date() : null,
+                                notificationIDs: newNotificationsIDS,
                               };
                             }
+
                             return n;
                           });
 
                           setNotes(updatedNotes);
                           setFilteredNotes(updatedNotes);
-                          await saveNotes("notes",updatedNotes)
+                          await saveNotes("notes", updatedNotes);
                         }}
                       />
                     </View>
@@ -1003,6 +1022,7 @@ const App = () => {
                 >
                   <Picker.Item label="Yes" value={true} />
                   <Picker.Item label="No" value={false} />
+                  <Picker.Item label="All" value="All" />
                 </Picker>
               </View>
               <View
@@ -1047,7 +1067,7 @@ const App = () => {
             }
             fullScreen
           >
-            <Statistics notes={notes} width={width}/>
+            <Statistics notes={notes} width={width} />
             <View
               style={{
                 width: "100%",
@@ -1080,7 +1100,7 @@ const App = () => {
           marginTop: 10,
 
           right: "10%",
-          bottom: 120,
+          bottom: 0,
         }}
       >
         <Overlay
