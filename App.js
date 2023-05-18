@@ -167,7 +167,11 @@ const App = () => {
   const filterNotes = () => {
     const filteredNotes = notes.filter(
       (note) =>
-        note.category === filter.category && note.priority === filter.priority
+        (note.category === filter.category &&
+          note.priority === filter.priority) ||
+        (filter.category === "All" && note.priority === filter.priority) ||
+        (filter.priority === "All" && note.category === filter.category) ||
+        (filter.category === "All" && filter.priority === "All")
     );
     setFilteredNotes(filteredNotes);
     toggleFilter();
@@ -386,17 +390,6 @@ const App = () => {
     setTimePickerHidden(true);
     setNoteToEdit({ ...noteToEdit, ["deadlineDate"]: currentTime });
   };
-  //notifications
-  async function schedulePushNotification() {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "You've got mail! 📬",
-        body: "Here is the notification body",
-        data: { data: "goes here" },
-      },
-      trigger: { seconds: 2 },
-    });
-  }
 
   async function registerForPushNotificationsAsync() {
     let token;
@@ -853,6 +846,7 @@ const App = () => {
                 >
                   <Picker.Item label="Personal" value="Personal" />
                   <Picker.Item label="Work" value="Work" />
+                  <Picker.Item label="All" value="All" />
                 </Picker>
               </View>
               <View style={{ paddingTop: 25 }}>
@@ -870,6 +864,7 @@ const App = () => {
                   <Picker.Item label="Low" value="Low" />
                   <Picker.Item label="Mid" value="Mid" />
                   <Picker.Item label="High" value="High" />
+                  <Picker.Item label="All" value="All" />
                 </Picker>
               </View>
               <View
