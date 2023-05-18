@@ -184,16 +184,14 @@ const App = () => {
     });
     setVisibleAddNote(!visibleAddNote);
   };
-  const handleAdd = async () => {
-    setVisibleAddNote(!visibleAddNote);
-    console.log(noteToEdit.deadlineDate);
+  const addNotifications = async () => {
     let date = new Date(noteToEdit.deadlineDate);
 
     //Add 10 seconds to the current date to test it.
 
     const notificationIDs = [];
     console.log(noteToEdit.priority);
-    if (noteToEdit.priority == "green") {
+    if (noteToEdit.priority == "Low") {
       date.setSeconds(date.getSeconds() + 10);
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
@@ -203,7 +201,7 @@ const App = () => {
         trigger: { date: date },
       });
       notificationIDs.push(identifier);
-    } else if (noteToEdit.priority == "orange") {
+    } else if (noteToEdit.priority == "Mid") {
       date.setSeconds(date.getSeconds() + 10);
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
@@ -225,7 +223,7 @@ const App = () => {
           trigger: { date: date },
         });
       notificationIDs.push(identifierHourBefore);
-    } else if (noteToEdit.priority == "red") {
+    } else if (noteToEdit.priority == "High") {
       date.setSeconds(date.getSeconds() + 10);
       console.log(date);
       const identifier = await Notifications.scheduleNotificationAsync({
@@ -261,7 +259,16 @@ const App = () => {
       });
       notificationIDs.push(identifierDay);
     }
-
+    console.log(notificationIDs);
+    console.log("comparison");
+    return notificationIDs;
+  };
+  const handleAdd = async () => {
+    setVisibleAddNote(!visibleAddNote);
+    console.log(noteToEdit.deadlineDate);
+    //add notification when the task is due
+    const notificationIDArray = await addNotifications();
+    console.log(notificationIDArray);
     const newNote = {
       id: uuid.v4(),
       content: noteToEdit.content,
@@ -272,11 +279,10 @@ const App = () => {
       deadlineDate: noteToEdit.deadlineDate,
 
       priority: noteToEdit.priority,
-      notificationIDs: notificationIDs,
+      notificationIDs: notificationIDArray,
     };
     setNotes([...notes, newNote]);
     setFilteredNotes([...notes, newNote]);
-    //add notification when the task is due
 
     await saveNotes("notes", [...notes, newNote]);
   };
@@ -285,11 +291,15 @@ const App = () => {
     const updatedNotes = notes.filter((note) => note.id !== id);
     setFilteredNotes([...updatedNotes]);
     setNotes([...updatedNotes]);
-
+    console.log(notificationIDToDelete.notificationIDs);
     await saveNotes("notes", updatedNotes);
-    notificationIDToDelete.notificationIDs.forEach(async (element) => {
-      await Notifications.cancelScheduledNotificationAsync(element);
-    });
+    try {
+      notificationIDToDelete.notificationIDs.forEach(async (element) => {
+        await Notifications.cancelScheduledNotificationAsync(element);
+      });
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const handleInputChange = (name, value) => {
@@ -341,11 +351,28 @@ const App = () => {
   const editNote = async () => {
     console.log(notes);
     console.log(noteToEdit);
+    //delete pre-edit notifications
+    const notificationIDToDelete = notes.find(
+      (note) => note.id == noteToEdit.id
+    );
+    console.log(notificationIDToDelete);
+    try {
+      notificationIDToDelete.notificationIDs.forEach(async (element) => {
+        await Notifications.cancelScheduledNotificationAsync(element);
+      });
+    } catch (error) {
+      console.log(error);
+    }
+
+    const newNotificationsIDS = addNotifications();
+    console.log(newNotificationsIDS);
+    setNoteToEdit({ ...noteToEdit, ["notificatonIDs"]: newNotificationsIDS });
     const updatedNotes = notes.map((note) =>
       note.id === noteToEdit.id ? noteToEdit : note
     );
     setFilteredNotes([...updatedNotes]);
     setNotes([...updatedNotes]);
+    //delete pre-edit notifications
     await saveNotes("notes", updatedNotes);
     toggleEditOverlay(noteToEdit);
   };
@@ -629,14 +656,14 @@ const App = () => {
                   borderColor:
                     note.priority === "Low"
                       ? "green"
-                      : note.priority === "Medium"
+                      : note.priority === "Mid"
                       ? "orange"
                       : "red",
                   borderWidth: 1,
                   backgroundColor:
                     note.priority === "Low"
                       ? "green"
-                      : note.priority === "Medium"
+                      : note.priority === "Mid"
                       ? "orange"
                       : "red",
                   flex: 1,
